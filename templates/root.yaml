@@ -1,0 +1,33 @@
+---
+# Copyright The Linux Foundation and each contributor to LFX.
+# SPDX-License-Identifier: MIT
+
+# Set up the ROOT project and The Linux Foundation project.
+# TODO Update project fields for request - find extra/missing fields
+# that may be needed or helpful
+type: request
+params:
+  url: {{ environ.PROJECTS_URL | default "http://lfx-api.lfx.svc.cluster.local/projects" }}
+  method: POST
+  headers:
+    Authorization: Bearer {{ environ.LFX_API_KEY | default "unset" }}
+steps:
+  # `request` type steps are the JSON payloads for each request.
+  - slug: ROOT
+    name: LFX_ROOT
+    description: >-
+      A root project for teams permissions assignment, ordinarily hidden
+      from users.
+  - slug: tlf
+    name: The Linux Foundation
+    description: >-
+      The Linux Foundation is dedicated to building sustainable ecosystems
+      around open source projects to accelerate technology development and
+      industry adoption. Founded in 2000, the Linux Foundation provides
+      unparalleled support for open source communities through financial
+      and intellectual resources, infrastructure, services, events, and
+      training. Working together, the Linux Foundation and its projects
+      form the most ambitious and successful investment in the creation of
+      shared technology.
+    public: true
+    parent_uid: !ref playbooks.base_projects.steps[?slug == 'ROOT']._response.uid | [0]

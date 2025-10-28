@@ -1,0 +1,33 @@
+---
+# Copyright The Linux Foundation and each contributor to LFX.
+# SPDX-License-Identifier: MIT
+
+# Create a tree of projects under the LF to represent a larger-than-normal
+# project depth for testing.
+type: request
+params:
+  url: {{ environ.PROJECTS_URL | default "http://lfx-api.lfx.svc.cluster.local/projects" }}
+  method: POST
+  headers:
+    Authorization: Bearer {{ environ.LFX_API_KEY | default "unset" }}
+steps:
+  {{- $project_name := generate_name "capital" }}
+  - slug: depth_test_0
+    name: {{ $project_name }} Foundation
+    description: >-
+      {{ $project_name }}
+      {{ lorem | lower }}
+      {{ lorem }}
+    public: true
+    parent_uid: !ref "playbooks.base_projects.steps[?slug == 'tlf']._response.uid | [0]"
+  {{- range $depth := untilStep 1 10 1}}
+  {{- $project_name := generate_name "capital" }}
+  - slug: depth_test_{{ $depth }}
+    name: {{ $project_name }} Project
+    description: >-
+      {{ $project_name }}
+      {{ lorem | lower }}
+      {{ lorem }}
+    public: true
+    parent_uid: !ref "playbooks.n_depth.steps[?slug == 'depth_test_{{ sub $depth 1 }}']._response.uid | [0]"
+  {{- end }}
