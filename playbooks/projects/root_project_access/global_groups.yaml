@@ -1,0 +1,38 @@
+---
+global_groups_root_lookup:
+  type: nats-request
+  params:
+    subject: lfx.projects-api.slug_to_uid
+  steps:
+    - raw: ROOT
+global_groups:
+  # Creates OpenFGA tuples for global-group access to ROOT.
+  type: http-request
+  params:
+    url: '{{
+      environ.OPENFGA_API_URL
+      | default("http://lfx-platform-openfga.lfx.svc.cluster.local:8080")
+      }}/stores/{{
+      environ.OPENFGA_STORE_ID | default("-")
+      }}/write'
+    method: POST
+  steps:
+    - json:
+        writes:
+          tuple_keys:
+            # A user principal from lfx-v2-helm's values.yaml
+            # (authelia.authelia_user_generation.users).
+            - user: "user:project_super_admin"
+              relation: member
+              object: "team:project_super_admins"
+            # A M2M principal from lfx-v2-helm's values.yaml
+            # (authelia.authelia_client_generation.clients).
+            - user: "user:clients@m2m_test"
+              relation: member
+              object: "team:project_super_admins"
+            # Attach the global group with the above members to the ROOT
+            # project.
+            - user: "team:project_super_admins#member"
+              relation: owner
+              object: !sub "project:${global_groups_root_lookup.steps[0]._response || `-`}"
+          on_duplicate: ignore

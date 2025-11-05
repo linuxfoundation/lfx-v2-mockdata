@@ -1,0 +1,67 @@
+---
+base_projects:
+  type: http-request
+  params:
+    url: {{ environ.PROJECTS_URL | default("http://lfx-v2-project-service.lfx.svc.cluster.local:8080/projects") }}
+    method: POST
+    headers:
+      Authorization: Bearer {{ environ.PROJECTS_TOKEN | default("-") }}
+  steps:
+    - json:
+        slug: tlf
+        name: The Linux Foundation
+        description: >-
+          The Linux Foundation is dedicated to building sustainable ecosystems
+          around open source projects to accelerate technology development and
+          industry adoption. Founded in 2000, the Linux Foundation provides
+          unparalleled support for open source communities through financial
+          and intellectual resources, infrastructure, services, events, and
+          training. Working together, the Linux Foundation and its projects
+          form the most ambitious and successful investment in the creation of
+          shared technology.
+        public: true
+        formation_date: "2002-10-02"
+        legal_entity_name: The Linux Foundation
+        legal_entity_type: Incorporated Entity
+        logo_url: https://lf-master-project-logos-prod.s3.us-east-2.amazonaws.com/thelinuxfoundation-color.svg
+        parent_uid: !ref "root_project.steps[0]._response"
+        repository_url: https://github.com/linuxfoundation
+        stage: Active
+        website_url: https://www.linuxfoundation.org/
+    - json:
+        slug: jdf
+        name: Joint Development Foundation
+        description: >-
+          The Joint Development Foundation provides the corporate and legal
+          infrastructure to enable groups to quickly establish and operate
+          lightweight collaborations to develop technical specifications,
+          standards, and source code. Joint Development Foundation Projects are
+          ideal for specification development projects or as a place to do
+          incubation projects before taking those projects to a larger
+          standards organization.
+        public: true
+        formation_date: "2014-06-06"
+        legal_entity_name: Joint Development Foundation
+        legal_entity_type: Incorporated Entity
+        legal_parent_uid: !ref "base_projects.steps[?json.slug == 'tlf']._response.uid | [0]"
+        parent_uid: !ref "base_projects.steps[?json.slug == 'tlf']._response.uid | [0]"
+        repository_url: https://github.com/Joint-Development-Foundation
+        stage: Active
+        website_url: https://www.jointdevelopment.org/
+    - json:
+        slug: lfprojects
+        name: LF Projects, LLC
+        # Yes, this really is missing a trailing period.
+        description: >-
+          LF Projects, LLC is a Delaware series limited liability company (“LF
+          Projects”). Projects of LF Projects (“Projects”) are established as
+          separate ‘series’ of LF Projects
+        public: true
+        formation_date: "2017-07-12"
+        parent_uid: !ref "base_projects.steps[?json.slug == 'tlf']._response.uid | [0]"
+        legal_entity_name: LF Projects, LLC
+        legal_entity_type: Incorporated Entity
+        legal_parent_uid: !ref "base_projects.steps[?json.slug == 'jdf']._response.uid | [0]"
+        repository_url: https://example.com/lf-projects
+        stage: Active
+        website_url: https://lfprojects.org/

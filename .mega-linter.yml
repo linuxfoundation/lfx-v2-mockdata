@@ -1,0 +1,19 @@
+# Copyright The Linux Foundation and each contributor to LFX.
+# SPDX-License-Identifier: MIT
+---
+GITHUB_COMMENT_REPORTER: false
+DISABLE_LINTERS:
+  # Pylint errors on missing dependencies, and is redundant with ruff.
+  - PYTHON_PYLINT
+  # Pyright errors on missing dependencies.
+  - PYTHON_PYRIGHT
+  # Repository-wide link checking returns mostly false positives (like internal
+  # service URLs in templates).
+  - SPELL_LYCHEE
+  # yamllint is sufficient for us.
+  - YAML_PRETTIER
+DISABLE_ERRORS_LINTERS:
+  # This may be informative but doesn't need to break the build.
+  - COPYPASTE_JSCPD
+  # Warn on spelling only until we set up a local wordlist.
+  - SPELL_CSPELL

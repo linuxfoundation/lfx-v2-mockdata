@@ -1,0 +1,9 @@
+---
+# This playbook uses NATS to find the project_uid of the ROOT project created
+# by the projects-service init container.
+root_project:
+  type: nats-request
+  params:
+    subject: lfx.projects-api.slug_to_uid
+  steps:
+    - raw: ROOT
