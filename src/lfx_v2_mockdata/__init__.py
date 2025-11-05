@@ -1,4 +1,5 @@
-#!/usr/bin/env python3.12
+# Copyright The Linux Foundation and each contributor to LFX.
+# SPDX-License-Identifier: MIT
 
 """
 Upload mock data script with YAML playbook support.

@@ -1,3 +1,5 @@
+# Copyright The Linux Foundation and each contributor to LFX.
+# SPDX-License-Identifier: MIT
 ---
 # Recreate the ROOT project if needed. This is also created by the
 # project-service init container, but we may need to recreate it if purging

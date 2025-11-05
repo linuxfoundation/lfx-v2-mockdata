@@ -1,3 +1,5 @@
+# Copyright The Linux Foundation and each contributor to LFX.
+# SPDX-License-Identifier: MIT
 ---
 extra_incorporated:
   # These projects are not under the `tlf` tree to make it clear they are not

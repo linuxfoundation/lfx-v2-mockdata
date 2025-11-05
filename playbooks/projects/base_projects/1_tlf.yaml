@@ -1,3 +1,5 @@
+# Copyright The Linux Foundation and each contributor to LFX.
+# SPDX-License-Identifier: MIT
 ---
 base_projects:
   type: http-request
