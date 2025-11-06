@@ -30,11 +30,11 @@ if [ -z "$key_id" ]; then
 fi
 
 pem_temp_dir=$(mktemp -d)
-kubectl get secret/heimdall-signer-cert -n lfx -o json | jq -r '.data["signer.pem"]' | base64 --decode > ${pem_temp_dir}/signer.pem
+kubectl get secret/heimdall-signer-cert -n lfx -o json | jq -r '.data["signer.pem"]' | base64 --decode > "${pem_temp_dir}"/signer.pem
 
 jwt encode \
     --alg PS256 \
-    --kid $key_id \
+    --kid "$key_id" \
     --exp=+300s \
     --nbf +0s \
     --jti "$(uuidgen)" \
@@ -47,6 +47,6 @@ jwt encode \
 
 jwt_result=$?
 
-rm -rf ${pem_temp_dir}
+rm -rf "${pem_temp_dir}"
 
 exit $jwt_result

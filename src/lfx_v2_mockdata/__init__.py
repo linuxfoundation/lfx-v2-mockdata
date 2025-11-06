@@ -43,7 +43,7 @@ import structlog
 import yaml
 from dotenv import load_dotenv
 from faker import Faker
-from jinja2 import Environment, FileSystemLoader
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 from names_generator import generate_name
 from nats.aio.client import Client as NatsClient
 from nats.errors import TimeoutError
@@ -325,6 +325,10 @@ def yaml_render(template_dir, yaml_file):
         # Create an environment restricted to the passed template directory.
         env = Environment(
             loader=FileSystemLoader(searchpath=template_dir),
+            autoescape=select_autoescape(
+                default_for_string=True,
+                default=True,
+            ),
         )
         # Add helper functions to the Jinja2 environment.
         env.globals["environ"] = dict(os.environ)

@@ -31,7 +31,7 @@ recreate_root_project:
         parent_uid: ""
         stage: ""
         {% set created_at = now_z() %}
-        # Wrap in quotes to ensure YAML doesn't intrepret it as a timestamp and
+        # Wrap in quotes to ensure YAML doesn't interpret it as a timestamp and
         # loose our preferred formatting on output.
         created_at: "{{ created_at }}"
         updated_at: "{{ created_at }}"
