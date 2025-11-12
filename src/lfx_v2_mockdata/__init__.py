@@ -226,7 +226,7 @@ class JMESPathEncoder(json.JSONEncoder):
     """Extend the default JSON encoder for JMESPath macros.
 
     Supports both the JMESPath (!ref) and JMESPathSubstitution (!sub)
-    objects used by lfx_v2_mockdata.
+    macros.
     """
 
     def default(self, obj):
@@ -318,7 +318,7 @@ def yaml_include(loader, node):
 def yaml_render(template_dir, yaml_file):
     """Setup Jinja2 and render and parse a YAML file."""
     logger.info("Loading template", template_dir=template_dir, yaml_file=yaml_file)
-    # Check if we have already created a sandboxed Jinja2 environment for this
+    # Check if we have already created a sandbox Jinja2 environment for this
     # context/directory.
     env = jinja_env.get(None)
     if env is None:
@@ -956,13 +956,13 @@ def parse_args() -> UploadMockDataArgs:
         action="store_true",
         help="dump the parsed templates as JSON to stdout (with !ref expansion)",
     )
-    dryrun_group = parser.add_mutually_exclusive_group()
-    dryrun_group.add_argument(
+    dry_run_group = parser.add_mutually_exclusive_group()
+    dry_run_group.add_argument(
         "--dry-run",
         action="store_true",
         help="do not upload any data to endpoints",
     )
-    dryrun_group.add_argument(
+    dry_run_group.add_argument(
         "--upload",
         action="store_true",
         help="upload to endpoints even when dumping",

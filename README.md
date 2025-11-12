@@ -11,7 +11,7 @@ This tool generates mock data for the LFX v2 platform by running playbooks that 
 - `uv` package manager installed
 - `jwt` CLI from [jwt-cli](https://github.com/mike-engel/jwt-cli) Rust crate available in your $PATH
 
-These instructions and playbooks assume the script's execution environment has access to `*.*.svc.cluster.local` Kubernetes service URLs. These URLs in the playbooks can be overriden with environmental variables as needed.
+These instructions and playbooks assume the script's execution environment has access to `*.*.svc.cluster.local` Kubernetes service URLs. These URLs in the playbooks can be overridden with environmental variables as needed.
 
 ## Setup
 
@@ -56,7 +56,7 @@ export PROJECTS_TOKEN COMMITTEES_TOKEN
 Use uv to run the mock data tool (uv will automatically manage Python versions and virtual environments):
 
 ```bash
-# Test the script (uv will create the venv automatically).
+# Test the script (uv will create the virtual environment automatically).
 uv run lfx-v2-mockdata --help
 # Load some data!
 uv run lfx-v2-mockdata -t playbooks/projects/{root_project_access,base_projects,extra_projects} playbooks/committees/base_committees

@@ -67,7 +67,8 @@ def setup_logging(log_level: str = "INFO") -> None:
     structlog.configure(
         processors=shared_processors
         + [
-            # If log level is too low, abort pipeline and throw away log entry.
+            # If log level is too low, halt the pipeline and throw away the log
+            # entry.
             structlog.stdlib.filter_by_level,
             # Prepare event dict for `ProcessorFormatter`.
             structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
