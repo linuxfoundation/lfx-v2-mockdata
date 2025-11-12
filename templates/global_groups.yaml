@@ -1,0 +1,29 @@
+---
+# Copyright The Linux Foundation and each contributor to LFX.
+# SPDX-License-Identifier: MIT
+
+# Creates OpenFGA tuples for global-group access to ROOT.
+#
+# Note, in the demo environment, several demo users are put into the
+# `project_super_admins` group via a step in README.md that writes from the
+# `lfx-global-groups.json` file. However, actually associating the group with
+# the ROOT project must happen here, where we can reference the dynamic `uid`
+# that is created.
+#
+# TODO: create a NATS type playbook entry, and dynamically look up the `uid` of
+# the ROOT project via a `dev.lfx.project-api.slug_to_uid` NATS request.
+type: request
+params:
+  url: '{{
+    environ.FGA_API_URL
+      | default "http://openfga.openfga.svc.cluster.local:8080"
+    }}/stores/{{
+      environ.FGA_STORE_ID
+    }}/write'
+  method: POST
+steps:
+  - writes:
+      tuple_keys:
+        - user: "team:project_super_admins#member"
+          relation: owner
+          object: !ref "[`project:`, playbooks.base_projects.steps[?slug == 'ROOT']._response.uid | [0]] | join(``, @)"

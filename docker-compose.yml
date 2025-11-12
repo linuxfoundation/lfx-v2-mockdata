@@ -1,0 +1,63 @@
+---
+# Copyright The Linux Foundation and each contributor to LFX.
+# SPDX-License-Identifier: MIT
+services:
+  # Projects API mock server
+  projects-api:
+    build:
+      context: ./mockserver
+      dockerfile: Dockerfile
+    container_name: lfx-projects-api
+    ports:
+      - "8080:8080"
+    environment:
+      - MOCK_SERVER_HOST=0.0.0.0
+      - MOCK_SERVER_PORT=8080
+      - SERVICE_MODE=projects
+      - LFX_API_KEY=${LFX_API_KEY:-mock-api-key}
+    networks:
+      lfx:
+        aliases:
+          # Network aliases for Projects API
+          - lfx-api.k8s.orb.local
+          - lfx-api.lfx.svc.cluster.local
+          - projects-api.lfx.svc.cluster.local
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  # OpenFGA API mock server
+  fga-api:
+    build:
+      context: ./mockserver
+      dockerfile: Dockerfile
+    container_name: lfx-fga-api
+    ports:
+      - "8081:8080"
+    environment:
+      - MOCK_SERVER_HOST=0.0.0.0
+      - MOCK_SERVER_PORT=8080
+      - SERVICE_MODE=fga
+      - LFX_API_KEY=${LFX_API_KEY:-mock-api-key}
+    networks:
+      lfx:
+        aliases:
+          # Network aliases for FGA API
+          - openfga.cluster.svc.local
+          - openfga.openfga.svc.cluster.local
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+networks:
+  lfx:
+    driver: bridge
+    name: lfx-network

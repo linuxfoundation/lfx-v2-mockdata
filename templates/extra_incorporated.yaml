@@ -1,0 +1,35 @@
+---
+# Copyright The Linux Foundation and each contributor to LFX.
+# SPDX-License-Identifier: MIT
+
+# These projects are not under the `tlf` tree to make it clear they are not
+# any kind of subsidiary of the Linux Foundation. These are typically
+# distinct incorporated entities with an operations agreement with the LF.
+type: request
+params:
+  url: {{ environ.PROJECTS_URL | default "http://lfx-api.lfx.svc.cluster.local:80/projects" }}
+  method: POST
+  headers:
+    Authorization: Bearer {{ environ.LFX_API_KEY | default "unset" }}
+steps:
+  {{ range $outer := untilStep 0 12 1 }}
+  {{- $project_name := generate_name "capital" }}
+  - slug: extra_inc_{{ $outer }}
+    name: {{ $project_name }}{{ index (list " Foundation" " Project" "") (mod $outer 3) }}
+    description: >-
+      {{ $project_name }}
+      {{ lorem | lower }}
+      {{ lorem }}
+    public: {{ index (list true true true false) (mod $outer 4) }}
+    parent_uid: !ref "playbooks.base_projects.steps[?slug == 'ROOT']._response.uid | [0]"
+  {{- $inner_count := index (list 0 0 1 2) (mod $outer 4) }}
+  {{- range $inner := untilStep 0 $inner_count 1 }}
+  {{- $inner_project_name := generate_name "capital" }}
+  - slug: extra_inc_{{ $outer }}_{{ $inner }}
+    name: {{ $inner_project_name }}{{ index (list " Working Group" " Binary" " Project") (mod $inner 3) }}
+    description: >-
+      {{ $inner_project_name }} is a child project of {{ $project_name }}.
+    public: {{ index (list true true true false) (mod $outer 4) }}
+    parent_uid: !ref "playbooks.extra_incorporated.steps[?slug == 'extra_inc_{{ $outer }}']._response.uid | [0]"
+  {{- end }}
+  {{- end }}
