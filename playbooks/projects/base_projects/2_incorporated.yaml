@@ -1,0 +1,49 @@
+# Copyright The Linux Foundation and each contributor to LFX.
+# SPDX-License-Identifier: MIT
+---
+extra_incorporated:
+  # These projects are not under the `tlf` tree to make it clear they are not
+  # any kind of subsidiary of the Linux Foundation. These are typically
+  # distinct incorporated entities with an operations agreement with the LF.
+  type: http-request
+  params:
+    url: {{ environ.PROJECTS_URL | default("http://lfx-v2-project-service.lfx.svc.cluster.local:8080/projects") }}
+    method: POST
+    headers:
+      Authorization: Bearer {{ environ.PROJECTS_TOKEN | default("-") }}
+  steps:
+    {% for outer in range(12) %}
+    {% set project_name = generate_name(style='capital') %}
+    {% set outer_stage = ["Active", "Formation - Engaged"] | random %}
+    - json:
+        slug: extra_inc_{{ outer }}
+        name: &extra_inc_{{ outer }}_name
+          {{ project_name + ([" Foundation", " Project", ""] | random) }}
+        description: >-
+          {{ project_name }}
+          {{ lorem.get_sentence().lower() }}
+          {{ lorem.get_sentence() }}
+        public: {{ outer_stage == "Active" }}
+        parent_uid: !ref "root_project.steps[0]._response"
+        legal_entity_name: *extra_inc_{{ outer }}_name
+        legal_entity_type: Incorporated Entity
+        repository_url: https://example.com/extra_inc_{{ outer }}
+        stage: {{ outer_stage }}
+    {% for inner in range([0, 0, 1, 2] | random) %}
+    {% set inner_project_name = generate_name(style='capital') %}
+    {% set inner_stage = ["Active", "Formation - Engaged"] | random %}
+    - json:
+        slug: extra_inc_{{ outer }}_{{ inner }}
+        name: {{ inner_project_name + ([" Working Group", " Binary", " Project"] | random) }}
+        description: >-
+          {{ inner_project_name }} is a child project of {{ project_name }}.
+        # Public requires both the parent and child to be public.
+        public: {{ inner_stage == "Active" and outer_stage == "Active" }}
+        parent_uid: !ref "extra_incorporated.steps[?json.slug == 'extra_inc_{{ outer }}']._response.uid | [0]"
+        # Children of incorporated entities use that entity, not the LF.
+        # TODO: Binary projects should actually use their own name and a Series LLC type.
+        legal_parent_uid: !ref "extra_incorporated.steps[?json.slug == 'extra_inc_{{ outer }}']._response.uid | [0]"
+        repository_url: https://example.com/extra_inc_{{ outer }}/repo_{{ inner }}
+        stage: {{ inner_stage }}
+    {% endfor %}
+    {% endfor %}

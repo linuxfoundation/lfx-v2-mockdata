@@ -1,0 +1,37 @@
+# Copyright The Linux Foundation and each contributor to LFX.
+# SPDX-License-Identifier: MIT
+---
+# Recreate the ROOT project if needed. This is also created by the
+# project-service init container, but we may need to recreate it if purging
+# data. At the moment, this must be done via NATS KV, because the
+# projects-service model requires a parent_uid.
+recreate_root_project_slug:
+  type: nats-kv-put
+  params:
+    bucket: projects
+    key: slug/ROOT
+  steps:
+    - raw: &root_project_uid
+        "{{ environ.PROJECTS_ROOT_UID | default(uuid()) }}"
+
+recreate_root_project:
+  type: nats-kv-put
+  params:
+    bucket: projects
+    key: *root_project_uid
+  steps:
+    - json:
+        uid: *root_project_uid
+        slug: ROOT
+        name: ROOT
+        description: >-
+          A root project for teams permissions assignment, ordinarily hidden
+          from users.
+        public: false
+        parent_uid: ""
+        stage: ""
+        {% set created_at = now_z() %}
+        # Wrap in quotes to ensure YAML doesn't interpret it as a timestamp and
+        # loose our preferred formatting on output.
+        created_at: "{{ created_at }}"
+        updated_at: "{{ created_at }}"

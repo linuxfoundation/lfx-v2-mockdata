@@ -1,0 +1,17 @@
+# Copyright The Linux Foundation and each contributor to LFX.
+# SPDX-License-Identifier: MIT
+---
+GITHUB_COMMENT_REPORTER: false
+DISABLE_LINTERS:
+  # Pylint errors on missing dependencies, and is redundant with ruff.
+  - PYTHON_PYLINT
+  # Pyright errors on missing dependencies.
+  - PYTHON_PYRIGHT
+  # yamllint is sufficient for us.
+  - YAML_PRETTIER
+DISABLE_ERRORS_LINTERS:
+  # This may be informative but doesn't need to break the build.
+  - COPYPASTE_JSCPD
+  # Making optional to not block builds, even though it's still important!
+  - SPELL_CSPELL
+PYTHON_ISORT_ARGUMENTS: "--src src"

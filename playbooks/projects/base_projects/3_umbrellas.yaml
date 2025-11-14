@@ -1,0 +1,90 @@
+# Copyright The Linux Foundation and each contributor to LFX.
+# SPDX-License-Identifier: MIT
+---
+sample_umbrella_buf:
+  type: http-request
+  params:
+    url: {{ environ.PROJECTS_URL | default("http://lfx-v2-project-service.lfx.svc.cluster.local:8080/projects") }}
+    method: POST
+    headers:
+      Authorization: Bearer {{ environ.PROJECTS_TOKEN | default("-") }}
+  steps:
+    - json:
+        slug: buf
+        name: Big Umbrella Foundation (BUF)
+        description: >-
+          The Big Umbrella Foundation is a highly-visible project with a board and
+          several technical projects underneath which does not use Series LLC
+          projects.
+        public: true
+        formation_date: "2015-01-01"
+        legal_entity_name: Big Umbrella Project (BUP)
+        # LF is both the parent and legal parent.
+        parent_uid: !ref "base_projects.steps[?json.slug == 'tlf']._response.uid | [0]"
+        legal_parent_uid: !ref "base_projects.steps[?json.slug == 'tlf']._response.uid | [0]"
+        repository_url: https://example.com/buf-foundation
+        stage: Active
+        website_url: https://buf-foundation.example/
+    {% for buf_child in range(25) %}
+    {% set buf_child_name = generate_name(style='capital') %}
+    - json:
+        slug: {{ buf_child_name | lower | replace(" ", "-") }}
+        name: {{ buf_child_name }} Project
+        description: >-
+          {{ buf_child_name }}
+          {{ lorem.get_sentence().lower() }}
+          {{ lorem.get_sentence() }}
+        public: true
+        # Children's parent is the umbrella; legal parent is Linux Foundation.
+        parent_uid: !ref "sample_umbrella_buf.steps[0]._response.uid"
+        legal_entity_name: {{ buf_child_name }} Project
+        legal_entity_type: Subproject
+        repository_url: https://example.com/{{ buf_child_name | lower | replace(" ", "-") }}
+        website_url: https://{{ buf_child_name | lower | replace(" ", "-") }}.example/
+    {% endfor %}
+
+sample_umbrella_iubp:
+  type: http-request
+  params:
+    url: {{ environ.PROJECTS_URL | default("http://lfx-v2-project-service.lfx.svc.cluster.local:8080/projects") }}
+    method: POST
+    headers:
+      Authorization: Bearer {{ environ.PROJECTS_TOKEN | default("-") }}
+  steps:
+    - json:
+        slug: industry-umbrella-branded-projects-iubp
+        name: Industry Umbrella of Branded Projects (IUBP)
+        description: >-
+          The Industry Umbrella of Branded Projects is a highly-visible project
+          with a board and several distinctly-operating technical projects with
+          their own brands, websites, GitHub orgs. It also uses a Series LLC
+          structure.
+        public: true
+        formation_date: "2018-08-01"
+        legal_entity_name: Industry Umbrella of Branded Projects (IUBP)
+        # LF is both the parent and legal parent of the umbrella.
+        parent_uid: !ref "base_projects.steps[?json.slug == 'tlf']._response.uid | [0]"
+        legal_parent_uid: !ref "base_projects.steps[?json.slug == 'tlf']._response.uid | [0]"
+        stage: Active
+        repository_url: https://example.com/iubp-consortium
+        website_url: https://iubp.example/
+    {% for iubp_child in range(15) %}
+    {% set iubp_child_name = generate_name(style='capital') %}
+    - json:
+        slug: {{ iubp_child_name | lower | replace(" ", "-") }}
+        name: {{ iubp_child_name }} Project
+        description: >-
+          {{ iubp_child_name }}
+          {{ lorem.get_sentence().lower() }}
+          {{ lorem.get_sentence() }}
+        public: true
+        # Of course, despite looking like valid Series LLC names, these are of
+        # course FAKE and for testing only.
+        legal_entity_name: {{ iubp_child_name }} a Series of LF Projects, LLC
+        legal_entity_type: Series LLC
+        # Children's parent is the umbrella; legal parent is LF Projects, LLC.
+        parent_uid: !ref "sample_umbrella_iubp.steps[0]._response.uid"
+        legal_parent_uid: !ref "base_projects.steps[?json.slug == 'lfprojects']._response.uid | [0]"
+        repository_url: https://example.com/{{ iubp_child_name | lower | replace(" ", "-") }}
+        website_url: https://{{ iubp_child_name | lower | replace(" ", "-") }}.example/
+    {% endfor %}

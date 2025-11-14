@@ -1,0 +1,94 @@
+# Copyright The Linux Foundation and each contributor to LFX.
+# SPDX-License-Identifier: MIT
+---
+buf_committee_project_lookup:
+  type: nats-request
+  params:
+    subject: lfx.projects-api.slug_to_uid
+  steps:
+    - raw: buf
+
+buf_committees:
+  type: http-request
+  params:
+    url: {{ environ.COMMITTEES_URL | default("http://lfx-v2-committee-service.lfx.svc.cluster.local:8080/committees") }}
+    method: POST
+    headers:
+      Authorization: Bearer {{ environ.COMMITTEES_TOKEN | default("-") }}
+  steps:
+    - json:
+        name: Governing Board
+        description: >-
+          The Governing Board for the Big Umbrella Foundation (BUF).
+        category: Board
+        public: true
+        enable_voting: true
+        business_email_required: true
+        project_uid: !ref "buf_committee_project_lookup.steps[0]._response"
+        requires_review: true
+    - json:
+        name: Finance Committee
+        description: >-
+          The Finance Committee for the Big Umbrella Foundation (BUF).
+        category: Finance Committee
+        public: true
+        enable_voting: true
+        business_email_required: true
+        parent_uid: !ref "buf_committees.steps[?json.name == 'Governing Board']._response.uid | [0]"
+        project_uid: !ref "buf_committee_project_lookup.steps[0]._response"
+    - json:
+        name: Marketing Committee
+        description: >-
+          The Marketing Committee for the Big Umbrella Foundation (BUF).
+        category: Marketing Oversight Committee/Marketing Advisory Committee
+        public: false
+        enable_voting: false
+        project_uid: !ref "buf_committee_project_lookup.steps[0]._response"
+    - json:
+        name: Technical Oversight Committee
+        description: >-
+          The Technical Oversight Committee for the Big Umbrella Foundation (BUF).
+        category: Technical Oversight Committee/Technical Advisory Committee
+        public: true
+        enable_voting: true
+        business_email_required: true
+        project_uid: !ref "buf_committee_project_lookup.steps[0]._response"
+
+buf_board_members:
+  type: http-request
+  params:
+    url: !sub "{{ environ.COMMITTEES_URL | default('http://lfx-v2-committee-service.lfx.svc.cluster.local:8080/committees') }}/${ buf_committees.steps[?json.name == 'Governing Board']._response.uid | [0] }/members?v=1"
+    method: POST
+    headers:
+      Authorization: Bearer {{ environ.COMMITTEES_TOKEN | default("-") }}
+  steps:
+    {% for i in range(1) %}
+    - json:
+        appointed_by: Membership Entitlement
+        email: {{ fake.ascii_company_email() }}
+        first_name: {{ fake.first_name() }}
+        last_name: {{ fake.last_name() }}
+        organization:
+          name: {{ fake.company() }}
+          website: {{ fake.url() }}
+        {% if i == 0 %}
+        role:
+          name: Chair
+        {% endif %}
+        status: Active
+        voting:
+          {% set start_date = fake.date_this_year() %}
+          # 365 days later
+          {% set end_date = start_date + timedelta(days=365) %}
+          start_date: "{{ start_date.isoformat().replace('+00:00', 'Z') }}"
+          end_date: "{{ end_date.isoformat().replace('+00:00', 'Z') }}"
+          status: {{ [
+            "Alternate Voting Rep",
+            "Voting Rep",
+            "Voting Rep",
+            "Voting Rep",
+            "Observer",
+            "Observer",
+            "Emeritus",
+          ] | random }}
+    {% endfor %}
