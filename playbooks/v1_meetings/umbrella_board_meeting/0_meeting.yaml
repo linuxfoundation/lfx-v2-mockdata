@@ -1,0 +1,141 @@
+# Copyright The Linux Foundation and each contributor to LFX.
+# SPDX-License-Identifier: MIT
+---
+buf_board_meeting_project_lookup:
+  type: nats-request
+  params:
+    subject: lfx.projects-api.slug_to_uid
+  steps:
+    - raw: buf
+
+buf_board_meeting_access_update:
+  type: nats-publish
+  params:
+    subject: lfx.update_access.v1_meeting
+  steps:
+    - json:
+        # Create a monthly board meeting which was first scheduled 2
+        # months ago on the hour, on a weekday (where 0 = Monday).
+        {% set meeting_id = fake.pyint(min_value=10000000000, max_value=99999999999) %}
+        {% set meeting_start_time = fake.date_time_between(start_date='-90d', end_date='-60d').replace(minute=0, second=0, microsecond=0) %}
+        {% if meeting_start_time.weekday() in (5, 6) %}
+        {% set meeting_start_time = meeting_start_time - timedelta(days=2) %}
+        {% endif %}
+        # Map Python weekday (0 = Monday, 6 = Sunday) to Zoom (1 = Sunday, 7 = Saturday).
+        {% set zoom_weekly_day = (meeting_start_time.weekday() + 1) % 7 + 1 %}
+        topic: Monthly Board Meeting
+        visibility: public
+        committee_filters: []
+        restricted: false
+        password: {{ uuid() }}
+        recurrence:
+          # 100 years from initial meeting.
+          end_date_time: "{{ (meeting_start_time + timedelta(days=365*100)).isoformat() }}Z"
+          repeat_interval: "1"
+          type: "3"
+          weekly_days: "{{ zoom_weekly_day }}"
+        zoom_ai_enabled: true
+        # 6-digit numeric passcode.
+        host_key: "{{ fake.pyint(min_value=100000, max_value=999999) }}"
+        transcript_enabled: true
+        early_join_time: "10"
+        recording_enabled: true
+        duration: "60"
+        meeting_id: &board_meeting_id
+          "{{ meeting_id }}"
+        recording_access: public
+        concurrent_zoom_user_enabled: true
+        # TODO.
+        #updated_occurrences:
+        #   - duration: "60"
+        #     recurrence:
+        #       repeat_interval: "2"
+        #       end_date_time: "2124-10-07T13:00:00Z"
+        #       type: "2"
+        #       weekly_days: "3"
+        #     old_occurrence_id: "1762275600"
+        #     timezone: ""
+        #     topic: Monthly Board Meeting
+        #     all_following: true
+        #     new_occurrence_id: "1762275600"
+        #     agenda: ""
+        require_ai_summary_approval: true
+        use_new_invite_email_address: true
+        # TODO
+        #ics_additional_uids:
+        #  - 98457927869:2025-11-04T17:00:00Z
+        created_at: &board_meeting_created_at
+          "{{ fake.date_time_between(start_date='-1y', end_date='-90d').isoformat() }}Z"
+        meeting_type: Board
+        join_url: "https://zoom.us/j/{{ meeting_id }}?pwd={{ fake.pystr() }}"
+        transcript_access: public
+        start_time: "{{ meeting_start_time.isoformat() }}Z"
+        # Note, proj_id (sfid) in the source data will have been stripped by lfx-v1-sync-helper.
+        project_uid: !ref "buf_board_meeting_project_lookup.steps[0]._response"
+        # Note, this is later than `created_at`.
+        modified_at: "{{ fake.date_time_between(start_date='-90d', end_date='-30d').isoformat() }}Z"
+        # TODO.
+        last_end_time: "4883986800"
+        # Zoom host user.
+        user_id: "{{ fake.pystr(min_chars=22, max_chars=22) }}"
+        last_mailing_list_members_sync_job_status: none
+        committee: !ref "buf_committees.steps[?json.name == 'Governing Board']._response.uid | [0]"
+        # Use "America/Los_Angeles" 50% of the time, else random.
+        {% if fake.pybool() %}
+        timezone: "America/Los_Angeles"
+        {% else %}
+        timezone: "{{ fake.timezone() }}"
+        {% endif %}
+        last_bulk_registrant_job_status: none
+        ai_summary_access: public
+        # 6-digit numeric passcode.
+        passcode: "{{ fake.pyint(min_value=100000, max_value=999999) }}"
+
+buf_board_meeting_committee_participants_access_update:
+  type: nats-publish
+  params:
+    subject: lfx.put_registrant.v1_meeting
+  steps:
+    # Count matches the count in buf_board_members.
+    {% for i in range(8) %}
+    - json:
+        registrant_id: "{{ fake.uuid4() }}"
+        meeting_id: *board_meeting_id
+        committee: !ref "buf_committees.steps[?json.name == 'Governing Board']._response.uid | [0]"
+        org: !ref "buf_board_members.steps[{{ i }}].json.organization.name"
+        org_is_project_member: {{ fake.pybool() }}
+        email: !ref "buf_board_members.steps[{{ i }}].json.email"
+        last_invite_delivery_successful: true
+        last_invite_received_time: "{{ fake.date_time_between(start_date='-30d', end_date='now').isoformat() }}Z"
+        # TODO.
+        profile_picture: "https://lfx-cdn-prod.s3.amazonaws.com/users/avatar/a.png"
+        host: {{ fake.pybool() }}
+        last_invite_bounced: false
+        {% if fake.pybool() %}
+        job_title: "-"
+        {% else %}
+        job_title: "{{ fake.job() }}"
+        {% endif %}
+        {% if fake.pybool() %}
+        created_at: *board_meeting_created_at
+        {% else %}
+        created_at: "{{ fake.date_time_between(start_date='-90d', end_date='-60d').isoformat() }}Z"
+        {% endif %}
+        org_is_member: {{ fake.pybool() }}
+        last_invite_received_message_id: "{{ fake.uuid4().replace('-', '')[0:40] }}"
+        modified_at: "{{ fake.date_time_between(start_date='-60d', end_date='-30d').isoformat() }}Z"
+        # 50% chance to be empty, else use the local part of their email as a
+        # mock LFID username. `user_id` (sfid) is stripped by lfx-v1-sync-helper.
+        {% if fake.pybool() %}
+        username: ""
+        {% else %}
+        # TODO to parse from email local part.
+        username: {{ fake.user_name() }}
+        {% endif %}
+        last_name: !ref "buf_board_members.steps[{{ i }}].json.last_name"
+        # faker emails SHOULD be all lowercase at present.
+        case_sensitive_email: !ref buf_board_members.steps[{{ i }}].json.email
+        first_name: !ref buf_board_members.steps[{{ i }}].json.first_name
+        last_invite_delivered_time: "{{ fake.date_time_between(start_date='-60d', end_date='now').isoformat() }}Z"
+        type: committee
+    {% endfor %}
