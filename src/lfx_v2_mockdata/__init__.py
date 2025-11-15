@@ -31,6 +31,7 @@ import os
 import re
 import sys
 import uuid
+from base64 import b64encode
 from collections import OrderedDict
 from http import HTTPMethod
 from typing import Any
@@ -331,6 +332,7 @@ def yaml_render(template_dir, yaml_file):
             ),
         )
         # Add helper functions to the Jinja2 environment.
+        env.globals["b64encode"] = lambda s: b64encode(s).decode()
         env.globals["environ"] = dict(os.environ)
         env.globals["fake"] = fake
         env.globals["generate_name"] = generate_name

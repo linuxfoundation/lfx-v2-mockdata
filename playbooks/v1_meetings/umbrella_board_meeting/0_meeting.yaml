@@ -1,0 +1,290 @@
+# Copyright The Linux Foundation and each contributor to LFX.
+# SPDX-License-Identifier: MIT
+#
+# This scheduled meeting, its past meetings, registrants, attendees, and
+# artifacts all re-use a lot of variables and data, therefore it didn't make as
+# much sense to to split the playbooks across multiple files.
+---
+buf_board_meeting_project_lookup:
+  type: nats-request
+  params:
+    subject: lfx.projects-api.slug_to_uid
+  steps:
+    - raw: buf
+
+buf_board_meeting_access_update:
+  type: nats-publish
+  params:
+    subject: lfx.update_access.v1_meeting
+  steps:
+    - json:
+        {# Create a monthly board meeting which was first scheduled 2
+           months ago on the hour #}
+        {% set meeting_id = fake.pyint(min_value=10000000000, max_value=99999999999) %}
+        {% set meeting_start_time = fake.date_time_between(start_date='-90d', end_date='-60d').replace(minute=0, second=0, microsecond=0) %}
+        {% set meeting_duration = 60 %}
+        {# Only support first 4 weeks (TBD mocking "last week", aka week "-1" #}
+        {% if meeting_start_time.day > 28 %}
+        {% set meeting_start_time = meeting_start_time.replace(day=28) %}
+        {% endif %}
+        {# Ensure it's on a weekday #}
+        {% if meeting_start_time.weekday() in (5, 6) %}
+        {% set meeting_start_time = meeting_start_time - timedelta(days=2) %}
+        {% endif %}
+        {# Map Python weekday (0 = Monday, 6 = Sunday) to Zoom (1 = Sunday, 7 = Saturday). #}
+        {% set zoom_week_day = (meeting_start_time.weekday() + 1) % 7 + 1 %}
+        {% set week_of_month = (meeting_start_time.day / 7) | round(0, 'ceil') | int %}
+        topic: Monthly Board Meeting
+        visibility: public
+        agenda: "Monthly meeting for the Big Umbrella Foundation board. {{ lorem.get_sentence() }}"
+        committee_filters: []
+        restricted: false
+        password: {{ uuid() }}
+        recurrence:
+          # 100 years from initial meeting.
+          end_date_time: "{{ (meeting_start_time + timedelta(days=365*100)).isoformat() }}Z"
+          repeat_interval: "1"
+          type: "3"
+          monthly_week: "{{ week_of_month }}"
+          monthly_week_day: "{{ zoom_week_day }}"
+        zoom_ai_enabled: true
+        # 6-digit numeric passcode.
+        host_key: "{{ fake.pyint(min_value=100000, max_value=999999) }}"
+        transcript_enabled: true
+        early_join_time: "10"
+        recording_enabled: true
+        duration: "{{ meeting_duration }}"
+        meeting_id: "{{ meeting_id }}"
+        recording_access: public
+        concurrent_zoom_user_enabled: true
+        # TODO.
+        #updated_occurrences:
+        #   - duration: "60"
+        #     recurrence:
+        #       repeat_interval: "2"
+        #       end_date_time: "2124-10-07T13:00:00Z"
+        #       type: "2"
+        #       weekly_days: "3"
+        #     old_occurrence_id: "1762275600"
+        #     timezone: ""
+        #     topic: Monthly Board Meeting
+        #     all_following: true
+        #     new_occurrence_id: "1762275600"
+        #     agenda: ""
+        require_ai_summary_approval: true
+        use_new_invite_email_address: true
+        # TODO
+        #ics_additional_uids:
+        #  - 98457927869:2025-11-04T17:00:00Z
+        created_at: &board_meeting_created_at
+          "{{ fake.date_time_between(start_date='-1y', end_date='-90d').isoformat() }}Z"
+        meeting_type: Board
+        join_url: "https://zoom.us/j/{{ meeting_id }}?pwd={{ fake.pystr() }}"
+        transcript_access: public
+        start_time: "{{ meeting_start_time.isoformat() }}Z"
+        # Note, proj_id (sfid) in the source data will have been stripped by lfx-v1-sync-helper.
+        project_uid: !ref "buf_board_meeting_project_lookup.steps[0]._response"
+        # Note, this is later than `created_at`.
+        modified_at: "{{ fake.date_time_between(start_date='-90d', end_date='-30d').isoformat() }}Z"
+        # TODO.
+        last_end_time: "4883986800"
+        # Zoom host user.
+        user_id: "{{ fake.pystr(min_chars=22, max_chars=22) }}"
+        last_mailing_list_members_sync_job_status: none
+        committee: !ref "buf_committees.steps[?json.name == 'Governing Board']._response.uid | [0]"
+        # Use "America/Los_Angeles" 50% of the time, else random.
+        {% if fake.pybool() %}
+        timezone: "America/Los_Angeles"
+        {% else %}
+        timezone: "{{ fake.timezone() }}"
+        {% endif %}
+        last_bulk_registrant_job_status: none
+        ai_summary_access: public
+        # 6-digit numeric passcode.
+        passcode: "{{ fake.pyint(min_value=100000, max_value=999999) }}"
+
+# Past meetings.
+buf_board_past_meeting_access_update:
+  type: nats-publish
+  params:
+    subject: lfx.update_access.v1_past_meeting
+  steps:
+    # Meeting from 2 months ago.
+    - json:
+        {% set occurrence_start_time = meeting_start_time %}
+        {% set occurrence_actual_start = fake.date_time_between(
+          start_date=occurrence_start_time - timedelta(minutes=10),
+          end_date=occurrence_start_time + timedelta(minutes=2),
+        ) %}
+        {% set occurrence_actual_end = fake.date_time_between(
+          start_date=occurrence_actual_start + timedelta(minutes=meeting_duration-15),
+          end_date=occurrence_start_time + timedelta(minutes=meeting_duration+15),
+        ) %}
+        {% set occurrence_created = fake.date_time_between(
+          start_date=occurrence_actual_start,
+          end_date=occurrence_actual_end,
+        ) %}
+        {% set occurrence_modified = fake.date_time_between(
+          start_date=occurrence_created,
+          end_date=occurrence_actual_end,
+        ) %}
+        {% set occurrence_id = (occurrence_start_time.timestamp() * 1000) | int %}
+        topic: Monthly Board Meeting
+        artifacts: null
+        visibility: public
+        agenda: "Monthly meeting for the Big Umbrella Foundation board. {{ lorem.get_sentence() }}"
+        committee_filters:
+          - voting_rep
+          - alt_voting_rep
+          - observer
+          - emeritus
+        restricted: true
+        is_manually_created: false
+        project_slug: buf
+        scheduled_end_time: "{{ (occurrence_start_time + timedelta(minutes=meeting_duration)).isoformat() }}Z"
+        recurrence: !ref buf_board_meeting_access_update.steps[0].json.recurrence
+        zoom_ai_enabled: true
+        transcript_enabled: true
+        early_join_time: "10"
+        sessions:
+          - end_time: "{{ occurrence_actual_end.isoformat() }}Z"
+            uuid: "{{ b64encode(fake.binary(length=16)) }}"
+            start_time: "{{ occurrence_actual_start.isoformat() }}Z"
+        recording_enabled: true
+        meeting_and_occurrence_id: {{ meeting_id }}-{{ occurrence_id }}"
+        duration: "60"
+        meeting_id: "{{ meeting_id }}"
+        recording_access: public
+        scheduled_start_time: "{{ occurrence_start_time.isoformat() }}Z"
+        require_ai_summary_approval: true
+        created_at: "{{ occurrence_created.isoformat() }}Z"
+        meeting_type: ""
+        occurrence_id: "{{ occurrence_id }}"
+        transcript_access: public
+        recording_password: ""
+        # Note, proj_id (sfid) in the source data will have been stripped by
+        # lfx-v1-sync-helper. We'll still keep project_slug, though.
+        project_uid: !ref "buf_board_meeting_project_lookup.steps[0]._response"
+        modified_at: {{ occurrence_modified.isoformat() }}Z"
+        committee: !ref "buf_committees.steps[?json.name == 'Governing Board']._response.uid | [0]"
+        timezone: !ref buf_board_meeting_access_update.steps[0].json.timezone
+        ai_summary_access: public
+        # TODO ... what is this? (it didn't necesesarily match recurrence.type in my test data)
+        type: "3"
+    # Meeting from 1 month ago.
+    - json:
+        {# Find the new meeting time based on the same day-of-week and
+           week-of-month as the original meeting. #}
+        {% set weeks_to_next_month = ((32 - meeting_start_time.day) / 7) | round(0, 'ceil') | int %}
+        {% set occurrence_start_time = meeting_start_time + timedelta(days=7 * weeks_to_next_month) %}
+        {# Now, adjust to the correct week in the month. #}
+        {% set week_offset = ((occurrence_start_time.day / 7) | round(0, 'ceil') | int) - week_of_month %}
+        {% set occurrence_start_time = occurrence_start_time - timedelta(days=7 * week_offset) %}
+        {% set occurrence_actual_start = fake.date_time_between(
+          start_date=occurrence_start_time - timedelta(minutes=10),
+          end_date=occurrence_start_time + timedelta(minutes=2),
+        ) %}
+        {% set occurrence_actual_end = fake.date_time_between(
+          start_date=occurrence_actual_start + timedelta(minutes=meeting_duration-15),
+          end_date=occurrence_start_time + timedelta(minutes=meeting_duration+15),
+        ) %}
+        {% set occurrence_created = fake.date_time_between(
+          start_date=occurrence_actual_start,
+          end_date=occurrence_actual_end,
+        ) %}
+        {% set occurrence_modified = fake.date_time_between(
+          start_date=occurrence_created,
+          end_date=occurrence_actual_end,
+        ) %}
+        {% set occurrence_id = (occurrence_start_time.timestamp() * 1000) | int %}
+        topic: Monthly Board Meeting
+        artifacts: null
+        visibility: public
+        agenda: "Monthly meeting for the Big Umbrella Foundation board. {{ lorem.get_sentence() }}"
+        committee_filters:
+          - voting_rep
+          - alt_voting_rep
+          - observer
+          - emeritus
+        restricted: true
+        is_manually_created: false
+        project_slug: buf
+        scheduled_end_time: "{{ (occurrence_start_time + timedelta(minutes=meeting_duration)).isoformat() }}Z"
+        recurrence: !ref buf_board_meeting_access_update.steps[0].json.recurrence
+        zoom_ai_enabled: true
+        transcript_enabled: true
+        early_join_time: "10"
+        sessions:
+          - end_time: "{{ occurrence_actual_end.isoformat() }}Z"
+            uuid: "{{ b64encode(fake.binary(length=16)) }}"
+            start_time: "{{ occurrence_actual_start.isoformat() }}Z"
+        recording_enabled: true
+        meeting_and_occurrence_id: {{ meeting_id }}-{{ occurrence_id }}"
+        duration: "60"
+        meeting_id: "{{ meeting_id }}"
+        recording_access: public
+        scheduled_start_time: "{{ occurrence_start_time.isoformat() }}Z"
+        require_ai_summary_approval: true
+        created_at: "{{ occurrence_created.isoformat() }}Z"
+        meeting_type: ""
+        occurrence_id: "{{ occurrence_id }}"
+        transcript_access: public
+        recording_password: ""
+        # Note, proj_id (sfid) in the source data will have been stripped by
+        # lfx-v1-sync-helper. We'll still keep project_slug, though.
+        project_uid: !ref "buf_board_meeting_project_lookup.steps[0]._response"
+        modified_at: {{ occurrence_modified.isoformat() }}Z"
+        committee: !ref "buf_committees.steps[?json.name == 'Governing Board']._response.uid | [0]"
+        timezone: !ref buf_board_meeting_access_update.steps[0].json.timezone
+        ai_summary_access: public
+        # TODO ... what is this? (it didn't necesesarily match recurrence.type in my test data)
+        type: "3"
+
+buf_board_meeting_committee_participants_access_update:
+  type: nats-publish
+  params:
+    subject: lfx.put_registrant.v1_meeting
+  steps:
+    # Count matches the count in buf_board_members.
+    {% for i in range(8) %}
+    - json:
+        registrant_id: "{{ fake.uuid4() }}"
+        meeting_id: "{{ meeting_id }}"
+        committee: !ref "buf_committees.steps[?json.name == 'Governing Board']._response.uid | [0]"
+        org: !ref "buf_board_members.steps[{{ i }}].json.organization.name"
+        org_is_project_member: {{ fake.pybool() }}
+        email: !ref "buf_board_members.steps[{{ i }}].json.email"
+        last_invite_delivery_successful: true
+        last_invite_received_time: "{{ fake.date_time_between(start_date='-30d', end_date='now').isoformat() }}Z"
+        # TODO.
+        profile_picture: "https://lfx-cdn-prod.s3.amazonaws.com/users/avatar/a.png"
+        host: {{ fake.pybool() }}
+        last_invite_bounced: false
+        {% if fake.pybool() %}
+        job_title: "-"
+        {% else %}
+        job_title: "{{ fake.job() }}"
+        {% endif %}
+        {% if fake.pybool() %}
+        created_at: *board_meeting_created_at
+        {% else %}
+        created_at: "{{ fake.date_time_between(start_date='-90d', end_date='-60d').isoformat() }}Z"
+        {% endif %}
+        org_is_member: {{ fake.pybool() }}
+        last_invite_received_message_id: "{{ fake.uuid4().replace('-', '')[0:40] }}"
+        modified_at: "{{ fake.date_time_between(start_date='-60d', end_date='-30d').isoformat() }}Z"
+        # 50% chance to be empty, else use the local part of their email as a
+        # mock LFID username. `user_id` (sfid) is stripped by lfx-v1-sync-helper.
+        {% if fake.pybool() %}
+        username: ""
+        {% else %}
+        # TODO to parse from email local part.
+        username: {{ fake.user_name() }}
+        {% endif %}
+        last_name: !ref "buf_board_members.steps[{{ i }}].json.last_name"
+        # faker emails SHOULD be all lowercase at present.
+        case_sensitive_email: !ref buf_board_members.steps[{{ i }}].json.email
+        first_name: !ref buf_board_members.steps[{{ i }}].json.first_name
+        last_invite_delivered_time: "{{ fake.date_time_between(start_date='-60d', end_date='now').isoformat() }}Z"
+        type: committee
+    {% endfor %}
