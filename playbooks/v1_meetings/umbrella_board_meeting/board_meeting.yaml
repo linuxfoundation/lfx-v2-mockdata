@@ -39,7 +39,7 @@ buf_board_meeting_create:
           x-on-behalf-of: !jwt bearer=true,aud=lfx-v2-project-service,principal=clients@m2m_helper
         data:
           {% set meeting_id = fake.pyint(min_value=10000000000, max_value=99999999999) %}
-          {# Calculate initial meeting time based on `total_past_meetings`. #}
+          {# Calculate initial (historical) meeting time based on `total_past_meetings`. #}
           {% set previous_meeting = fake.date_time_between(
             start_date='-28d',
             end_date='-14d',
@@ -61,6 +61,11 @@ buf_board_meeting_create:
           {# Map Python weekday (0 = Monday, 6 = Sunday) to Zoom (1 = Sunday, 7 = Saturday). #}
           {% set zoom_week_day = (meeting_start_time.weekday() + 1) % 7 + 1 %}
           {% set week_of_month = (meeting_start_time.day / 7) | round(0, 'ceil') | int %}
+          {# Calculate the NEXT (future) meeting time for the scheduled meeting.
+             This is the meeting_start_time plus enough months to be in the future. #}
+          {% set next_meeting_start_time = (
+            meeting_start_time + timedelta(days=30 * (total_past_meetings + 1))
+          ).replace(hour=meeting_start_time.hour, minute=0, second=0, microsecond=0) %}
           # Renamed from `meeting_id` in v1.
           id: "{{ meeting_id }}"
           topic: Monthly Board Meeting
@@ -75,10 +80,10 @@ buf_board_meeting_create:
           recurrence:
             # 100 years from initial meeting.
             end_date_time: "{{ (meeting_start_time + timedelta(days=365*100)).isoformat() }}Z"
-            repeat_interval: "1"
-            type: "3"
-            monthly_week: "{{ week_of_month }}"
-            monthly_week_day: "{{ zoom_week_day }}"
+            repeat_interval: 1
+            type: 3
+            monthly_week: {{ week_of_month }}
+            monthly_week_day: {{ zoom_week_day }}
           zoom_ai_enabled: true
           # 6-digit numeric passcode.
           host_key: "{{ fake.pyint(min_value=100000, max_value=999999) }}"
@@ -112,7 +117,8 @@ buf_board_meeting_create:
           meeting_type: Board
           join_url: "https://zoom.example/j/{{ meeting_id }}?pwd={{ fake.pystr() }}"
           transcript_access: public
-          start_time: "{{ meeting_start_time.isoformat() }}Z"
+          # Use the NEXT (future) meeting time for the scheduled meeting
+          start_time: "{{ next_meeting_start_time.isoformat() }}Z"
           # Note, proj_id (sfid) in the source data will have been stripped by lfx-v1-sync-helper.
           project_uid: !ref "buf_board_meeting_project_lookup.steps[0]._response"
           # Note, this is later than `created_at`.
