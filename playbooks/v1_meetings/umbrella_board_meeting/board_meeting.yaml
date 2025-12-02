@@ -130,6 +130,19 @@ buf_board_meeting_create:
           ai_summary_access: public
           # 6-digit numeric passcode.
           passcode: "{{ fake.pyint(min_value=100000, max_value=999999) }}"
+        tags:
+          # Plain UID (for broad text search)
+          - "{{ meeting_id }}"
+          # Prefixed meeting_uid
+          - "meeting_uid:{{ meeting_id }}"
+          # Project UID
+          - !sub "project_uid:${buf_board_meeting_project_lookup.steps[0]._response}"
+          # Committee UID
+          - !sub "committee_uid:${buf_committees.steps[?json.name == 'Governing Board']._response.uid | [0]}"
+          # Title
+          - "title:Monthly Board Meeting"
+          # Meeting type
+          - "meeting_type:Board"
 
 buf_board_meeting_access_update:
   type: nats-publish
@@ -156,6 +169,8 @@ buf_board_meeting_committee_participants_create:
   steps:
     # Count matches the count in buf_board_members.
     {% for i in range(board_member_count) %}
+    {% set registrant_id = fake.uuid4() %}
+    {% set registrant_username = fake.user_name() if member_has_username[i] else "" %}
     - json:
         action: created
         headers:
@@ -163,7 +178,7 @@ buf_board_meeting_committee_participants_create:
           x-on-behalf-of: !jwt bearer=true,aud=lfx-v2-project-service,principal=clients@m2m_helper
         data:
           # Renamed from `registrant_id` in v1.
-          id: "{{ fake.uuid4() }}"
+          id: "{{ registrant_id }}"
           meeting_id: "{{ meeting_id }}"
           committee: !ref "buf_committees.steps[?json.name == 'Governing Board']._response.uid | [0]"
           org: !ref "buf_board_members.steps[{{ i }}].json.organization.name"
@@ -190,19 +205,31 @@ buf_board_meeting_committee_participants_create:
           modified_at: "{{ fake.date_time_between(start_date='-60d', end_date='-30d').isoformat() }}Z"
           # 50% chance to be empty, else use the local part of their email as a
           # mock LFID username. `user_id` (sfid) is stripped by lfx-v1-sync-helper.
-          {% if member_has_username[i] %}
-          # TODO to parse from email local part.
-          username: {{ fake.user_name() }}
-          {% else %}
-          username: ""
-          {% endif %}
+          username: "{{ registrant_username }}"
           last_name: !ref "buf_board_members.steps[{{ i }}].json.last_name"
           # faker emails SHOULD be all lowercase at present.
           case_sensitive_email: !ref buf_board_members.steps[{{ i }}].json.email
           first_name: !ref buf_board_members.steps[{{ i }}].json.first_name
           last_invite_delivered_time: "{{ fake.date_time_between(start_date='-60d', end_date='now').isoformat() }}Z"
           type: committee
-      {% endfor %}
+        tags:
+          # Plain UID
+          - "{{ registrant_id }}"
+          # Prefixed registrant_uid
+          - "registrant_uid:{{ registrant_id }}"
+          # Meeting UID
+          - "meeting_uid:{{ meeting_id }}"
+          # First name
+          - !sub "first_name:${buf_board_members.steps[{{ i }}].json.first_name}"
+          # Last name
+          - !sub "last_name:${buf_board_members.steps[{{ i }}].json.last_name}"
+          # Email
+          - !sub "email:${buf_board_members.steps[{{ i }}].json.email}"
+          {% if registrant_username %}
+          # Username (only if set)
+          - "username:{{ registrant_username }}"
+          {% endif %}
+    {% endfor %}
 
 buf_board_meeting_committee_participants_access_update:
   type: nats-publish
@@ -300,6 +327,21 @@ buf_board_past_meeting_{{ past_meeting_index }}_create:
           ai_summary_access: public
           # TODO ... what is this? (it didn't necesesarily match recurrence.type in my test data)
           type: "3"
+        tags:
+          # Plain UID (past_meeting_uid)
+          - "{{ meeting_id }}-{{ occurrence_id }}"
+          # Prefixed past_meeting_uid
+          - "past_meeting_uid:{{ meeting_id }}-{{ occurrence_id }}"
+          # Meeting UID
+          - "meeting_uid:{{ meeting_id }}"
+          # Project UID
+          - !sub "project_uid:${buf_board_meeting_project_lookup.steps[0]._response}"
+          # Occurrence ID
+          - "occurrence_id:{{ occurrence_id }}"
+          # Committee UID
+          - !sub "committee_uid:${buf_committees.steps[?json.name == 'Governing Board']._response.uid | [0]}"
+          # Title (topic)
+          - "title:Monthly Board Meeting"
 
 buf_board_past_meeting_{{ past_meeting_index }}_access_update:
   type: nats-publish
@@ -420,6 +462,19 @@ buf_board_past_meeting_{{ past_meeting_index }}_recording_create:
           recording_count: "5"
           meeting_id: "{{ meeting_id }}"
           recording_access: public
+        tags:
+          # Plain UID (past_meeting_recording_uid)
+          - "{{ meeting_id }}-{{ occurrence_id }}"
+          # Prefixed past_meeting_recording_uid
+          - "past_meeting_recording_uid:{{ meeting_id }}-{{ occurrence_id }}"
+          # Past meeting UID
+          - "past_meeting_uid:{{ meeting_id }}-{{ occurrence_id }}"
+          # Platform
+          - "platform:Zoom"
+          # Platform meeting ID
+          - "platform_meeting_id:{{ meeting_id }}"
+          # Platform meeting instance ID (session UUID)
+          - "platform_meeting_instance_id:{{ session_uuid }}"
 
 buf_board_past_meeting_{{ past_meeting_index }}_recording_access_update:
   type: nats-publish
@@ -508,6 +563,19 @@ buf_board_past_meeting_{{ past_meeting_index }}_transcript_create:
           meeting_id: "{{ meeting_id }}"
           # `recording_access` is filtered from the transcript object.
           # recording_access: public
+        tags:
+          # Plain UID (past_meeting_transcript_uid)
+          - "{{ meeting_id }}-{{ occurrence_id }}"
+          # Prefixed past_meeting_transcript_uid
+          - "past_meeting_transcript_uid:{{ meeting_id }}-{{ occurrence_id }}"
+          # Past meeting UID
+          - "past_meeting_uid:{{ meeting_id }}-{{ occurrence_id }}"
+          # Platform
+          - "platform:Zoom"
+          # Platform meeting ID
+          - "platform_meeting_id:{{ meeting_id }}"
+          # Platform meeting instance ID (session UUID)
+          - "platform_meeting_instance_id:{{ session_uuid }}"
 
 buf_board_past_meeting_{{ past_meeting_index }}_transcript_access_update:
   type: nats-publish
@@ -534,6 +602,7 @@ buf_board_past_meeting_{{ past_meeting_index }}_transcript_access_update:
   start_date=occurrence_actual_end,
   end_date=occurrence_actual_end + timedelta(minutes=10),
 ) %}
+{% set summary_id = fake.uuid4() %}
 
 buf_board_past_meeting_{{ past_meeting_index }}_summary_create:
   type: nats-publish
@@ -566,7 +635,7 @@ buf_board_past_meeting_{{ past_meeting_index }}_summary_create:
           summary_title: Meeting Summary for Monthly Board Meeting
           zoom_meeting_topic: Monthly Board Meeting
           meeting_and_occurrence_id: "{{ meeting_id }}-{{ occurrence_id }}"
-          id: {{ fake.uuid4() }}
+          id: "{{ summary_id }}"
           meeting_id: "{{ meeting_id }}"
           edited_summary_details: null
           email_sent: true
@@ -588,6 +657,19 @@ buf_board_past_meeting_{{ past_meeting_index }}_summary_create:
             {% for i in range(fake.pyint(min_value=2, max_value=5)) -%}
             {{ fake.sentence() -}}
             {% endfor %}
+        tags:
+          # Plain UID (past_meeting_summary_uid)
+          - "{{ summary_id }}"
+          # Prefixed past_meeting_summary_uid
+          - "past_meeting_summary_uid:{{ summary_id }}"
+          # Past meeting UID
+          - "past_meeting_uid:{{ meeting_id }}-{{ occurrence_id }}"
+          # Meeting UID
+          - "meeting_uid:{{ meeting_id }}"
+          # Platform
+          - "platform:Zoom"
+          # Title
+          - "title:Meeting Summary for Monthly Board Meeting"
 
 buf_board_past_meetings_{{ past_meeting_index }}_summary_access_update:
   type: nats-publish
@@ -623,6 +705,7 @@ buf_board_past_meeting_{{ past_meeting_index }}_participants_create:
     {% for i in range(board_member_count) -%}
     {# 50-50 chance of this participant also being an attender #}
     {% set is_attended = fake.pybool() %}
+    {% set participant_id = fake.uuid4() %}
     {% if is_attended %}
     {% set attendee_join_time = fake.date_time_between(
       start_date=occurrence_actual_start,
@@ -680,14 +763,32 @@ buf_board_past_meeting_{{ past_meeting_index }}_participants_create:
               leave_reason: 'left the meeting. Reason : left the meeting'
               join_time: "{{ attendee_join_time.isoformat() }}Z"
               participant_uuid: "{{ fake.uuid4().upper() }}"
-          # TODO: is this actually random, or should it match something?
-          id: "{{ fake.uuid4() }}"
+          id: "{{ participant_id }}"
           # This seems wrong in the observed source data (it's false even though
           # committee_voting_status is set!). Keeping as-is for fidelity.
           is_committee_member: false
           is_verified: true
           is_unknown: false
           AverageAttendance: "0"
+          {% endif %}
+        tags:
+          # Plain UID (past_meeting_participant_uid)
+          - "{{ participant_id }}"
+          # Prefixed past_meeting_participant_uid
+          - "past_meeting_participant_uid:{{ participant_id }}"
+          # Past meeting UID
+          - "past_meeting_uid:{{ meeting_id }}-{{ occurrence_id }}"
+          # Meeting UID
+          - "meeting_uid:{{ meeting_id }}"
+          # First name
+          - !sub "first_name:${buf_board_members.steps[{{ i }}].json.first_name}"
+          # Last name
+          - !sub "last_name:${buf_board_members.steps[{{ i }}].json.last_name}"
+          # Email
+          - !sub "email:${buf_board_members.steps[{{ i }}].json.email}"
+          {% if member_has_username[i] %}
+          # Username (only if set)
+          - !sub "username:${buf_board_meeting_committee_participants_create.steps[{{ i }}].json.data.username}"
           {% endif %}
     {% endfor %}
 
@@ -714,6 +815,7 @@ buf_board_past_meeting_{{ past_meeting_index }}_participant_guests_create:
     subject: lfx.index.v1_past_meeting_participant
   steps:
     {% for i in range(fake.pyint(min_value=1, max_value=2)) -%}
+    {% set guest_participant_id = fake.uuid4() %}
     {% set attendee_join_time = fake.date_time_between(
       start_date=occurrence_actual_start,
       end_date=occurrence_actual_start + timedelta(minutes=meeting_duration//2),
@@ -749,7 +851,7 @@ buf_board_past_meeting_{{ past_meeting_index }}_participant_guests_create:
               join_time: "{{ attendee_join_time.isoformat() }}Z"
               participant_uuid: "{{ fake.uuid4().upper() }}"
           meeting_and_occurrence_id: "{{ meeting_id }}-{{ occurrence_id }}"
-          id: "{{ fake.uuid4() }}"
+          id: "{{ guest_participant_id }}"
           meeting_id: "{{ meeting_id }}"
           is_verified: false
           job_title: ""
@@ -764,6 +866,16 @@ buf_board_past_meeting_{{ past_meeting_index }}_participant_guests_create:
           # Note, lf_user_id (sfid) is stripped by lfx-v1-sync-helper.
           lf_sso: ""
           committee_id: ""
+        tags:
+          # Plain UID (past_meeting_participant_uid)
+          - "{{ guest_participant_id }}"
+          # Prefixed past_meeting_participant_uid
+          - "past_meeting_participant_uid:{{ guest_participant_id }}"
+          # Past meeting UID
+          - "past_meeting_uid:{{ meeting_id }}-{{ occurrence_id }}"
+          # Meeting UID
+          - "meeting_uid:{{ meeting_id }}"
+          # Guest participants don't have first_name, last_name, email, or username
     {% endfor %}
 
 {# Find the next past meeting time based on the same day-of-week and
