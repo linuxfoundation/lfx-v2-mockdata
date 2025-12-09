@@ -62,33 +62,33 @@ buf_board_meeting_create:
           {% set zoom_week_day = (meeting_start_time.weekday() + 1) % 7 + 1 %}
           {% set week_of_month = (meeting_start_time.day / 7) | round(0, 'ceil') | int %}
           {# Calculate the NEXT (future) meeting time for the scheduled meeting.
-             This is the meeting_start_time plus enough months to be in the future. #}
+             Set to 1 hour from now so the meeting is joinable with early_join_time. #}
           {% set next_meeting_start_time = (
-            meeting_start_time + timedelta(days=30 * (total_past_meetings + 1))
-          ).replace(hour=meeting_start_time.hour, minute=0, second=0, microsecond=0) %}
+            now_utc() + timedelta(hours=1)
+          ).replace(minute=0, second=0, microsecond=0) %}
           # Renamed from `meeting_id` in v1.
           id: "{{ meeting_id }}"
           topic: Monthly Board Meeting
-          visibility: public
+          visibility: private
           agenda: "Monthly meeting for the Big Umbrella Foundation board. {{ fake.sentence() }}"
           # This is rewritten as an array to incorporate the "mappings" one-to-many table.
           committees:
             - uid: !ref "buf_committees.steps[?json.name == 'Governing Board']._response.uid | [0]"
               filters: []
-          restricted: false
+          restricted: true
           password: {{ fake.uuid4() }}
           recurrence:
             # 100 years from initial meeting.
             end_date_time: "{{ (meeting_start_time + timedelta(days=365*100)).isoformat() }}Z"
-            repeat_interval: 1
-            type: 3
-            monthly_week: {{ week_of_month }}
-            monthly_week_day: {{ zoom_week_day }}
+            repeat_interval: "1"
+            type: "3"
+            monthly_week: "{{ week_of_month }}"
+            monthly_week_day: "{{ zoom_week_day }}"
           zoom_ai_enabled: true
           # 6-digit numeric passcode.
           host_key: "{{ fake.pyint(min_value=100000, max_value=999999) }}"
           transcript_enabled: true
-          early_join_time: "10"
+          early_join_time: "60"
           recording_enabled: true
           duration: "{{ meeting_duration }}"
           recording_access: public
@@ -118,7 +118,7 @@ buf_board_meeting_create:
           join_url: "https://zoom.example/j/{{ meeting_id }}?pwd={{ fake.pystr() }}"
           transcript_access: public
           # Use the NEXT (future) meeting time for the scheduled meeting
-          start_time: "{{ next_meeting_start_time.isoformat() }}Z"
+          start_time: "{{ next_meeting_start_time.isoformat().replace('+00:00', '') }}Z"
           # Note, proj_id (sfid) in the source data will have been stripped by lfx-v1-sync-helper.
           project_uid: !ref "buf_board_meeting_project_lookup.steps[0]._response"
           # Note, this is later than `created_at`.
@@ -136,6 +136,7 @@ buf_board_meeting_create:
           ai_summary_access: public
           # 6-digit numeric passcode.
           passcode: "{{ fake.pyint(min_value=100000, max_value=999999) }}"
+          meeting_id: "{{ meeting_id }}"
         tags:
           # Plain UID (for broad text search)
           - "{{ meeting_id }}"
@@ -633,7 +634,7 @@ buf_board_past_meeting_{{ past_meeting_index }}_summary_create:
           requires_approval: true
           zoom_meeting_uuid: {{ session_uuid }}
           edited_next_steps: null
-          approved: false
+          approved: {{ fake.pybool() }}
           summary_created_time: "{{ summary_create_time.isoformat() }}Z"
           password: {{ fake.uuid4() }}
           summary_last_modified_time: "{{ summary_create_time.isoformat() }}Z"
