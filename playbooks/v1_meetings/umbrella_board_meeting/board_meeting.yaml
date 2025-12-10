@@ -238,19 +238,11 @@ buf_board_meeting_committee_participants_rsvps_create:
           occurrence_id: ""
           registrant_id: !ref "buf_board_meeting_committee_participants_create.steps[{{ i }}].json.data.id"
           email: !ref "buf_board_members.steps[{{ i }}].json.email"
-          name: !sub "${buf_board_members.steps[{{ i }}].json.first_name} ${buf_board_members.steps[{{ i }}].json.last_name}"
+          name: !sub "${ buf_board_members.steps[{{ i }}].json.first_name} ${buf_board_members.steps[{{ i }}].json.last_name }"
           user_id: ""
-          {% if member_has_username[i] %}
-          username: {{ fake.user_name() }}
-          {% else %}
-          username: ""
-          {% endif %}
+          username: !ref "buf_board_meeting_committee_participants_create.steps[{{ i }}].json.data.username"
           org: !ref "buf_board_members.steps[{{ i }}].json.organization.name"
-          {% if fake.pybool() %}
-          job_title: ""
-          {% else %}
-          job_title: "{{ fake.job() }}"
-          {% endif %}
+          job_title: !ref "buf_board_meeting_committee_participants_create.steps[{{ i }}].json.data.job_title"
           response: "{{ fake.random_element(elements=('accepted', 'declined', 'maybe')) }}"
           scope: "all" # There are three scopes: single, all, this_and_following. However, "all" is the easiest to support.
           response_date: "{{ rsvp_response_date.isoformat() }}Z"
