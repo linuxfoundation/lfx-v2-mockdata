@@ -45,10 +45,10 @@ buf_committees:
         enable_voting: false
         project_uid: !ref "buf_committee_project_lookup.steps[0]._response"
     - json:
-        name: Technical Oversight Committee
+        name: Technical Steering Committee
         description: >-
-          The Technical Oversight Committee for the Big Umbrella Foundation (BUF).
-        category: Technical Oversight Committee
+          The Technical Steering Committee for the Big Umbrella Foundation (BUF).
+        category: Technical Steering Committee
         public: true
         enable_voting: true
         business_email_required: true
