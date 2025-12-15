@@ -61,6 +61,7 @@ buf_board_meeting_create:
           {# Map Python weekday (0 = Monday, 6 = Sunday) to Zoom (1 = Sunday, 7 = Saturday). #}
           {% set zoom_week_day = (meeting_start_time.weekday() + 1) % 7 + 1 %}
           {% set week_of_month = (meeting_start_time.day / 7) | round(0, 'ceil') | int %}
+          {% set recurrence_end_date_time = meeting_start_time + timedelta(days=365*100) %}
           # Renamed from `meeting_id` in v1.
           id: "{{ meeting_id }}"
           topic: Monthly Board Meeting
@@ -74,11 +75,12 @@ buf_board_meeting_create:
           password: {{ fake.uuid4() }}
           recurrence:
             # 100 years from initial meeting.
-            end_date_time: "{{ (meeting_start_time + timedelta(days=365*100)).isoformat() }}Z"
+            end_date_time: "{{ recurrence_end_date_time.isoformat() }}Z"
             repeat_interval: "1"
             type: "3"
             monthly_week: "{{ week_of_month }}"
             monthly_week_day: "{{ zoom_week_day }}"
+          series_end_date: "{{ (recurrence_end_date_time + timedelta(minutes=meeting_duration)).isoformat() }}Z"
           zoom_ai_enabled: true
           # 6-digit numeric passcode.
           host_key: "{{ fake.pyint(min_value=100000, max_value=999999) }}"
