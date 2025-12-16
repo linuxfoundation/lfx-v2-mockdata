@@ -799,13 +799,10 @@ def run_http_request_playbook(name: str, playbook: dict) -> None:
         except requests.exceptions.RequestException as e:
             # Try to get detailed error message from response body
             error_detail = str(e)
-            if hasattr(e, 'response') and e.response is not None:
-                try:
-                    error_body = e.response.text
-                    if error_body:
-                        error_detail = f"{e}\nResponse body: {error_body}"
-                except Exception:
-                    pass  # If we can't get the body, just use the original error
+            if hasattr(e, "response") and e.response is not None:
+                error_body = e.response.text
+                if error_body:
+                    error_detail = f"{e}\nResponse body: {error_body}"
 
             if cli_args.force:
                 logger.error("Request failed", error=error_detail, playbook=name)
