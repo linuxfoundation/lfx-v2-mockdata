@@ -50,7 +50,7 @@ fi
 
 # Get JWT RSA secret
 echo "🔑 Retrieving JWT RSA secret..." >&2
-JWT_RSA_SECRET=$(kubectl get secret/heimdall-signer-cert -n $NAMESPACE -o json 2>/dev/null | jq -r '.data["signer.pem"]' 2>/dev/null | base64 --decode 2>/dev/null)
+JWT_RSA_SECRET=$(kubectl get secret/heimdall-signer-cert -n "$NAMESPACE" -o json 2>/dev/null | jq -r '.data["signer.pem"]' 2>/dev/null | base64 --decode 2>/dev/null)
 KUBECTL_EXIT_CODE=$?
 
 if [ $KUBECTL_EXIT_CODE -ne 0 ] || [ -z "$JWT_RSA_SECRET" ]; then

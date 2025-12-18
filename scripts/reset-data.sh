@@ -61,7 +61,7 @@ clear_opensearch() {
 
 	# Retrieve current resources index mapping before deletion
 	echo "  Retrieving current resources index mapping..."
-	RESOURCES_INDEX=$(kubectl exec -n $NAMESPACE $OPENSEARCH_POD -- curl -s "http://localhost:9200/resources" 2>/dev/null)
+	RESOURCES_INDEX=$(kubectl exec -n "$NAMESPACE" "$OPENSEARCH_POD" -- curl -s "http://localhost:9200/resources" 2>/dev/null)
 
 	if [ -z "$RESOURCES_INDEX" ] || echo "$RESOURCES_INDEX" | grep -q "index_not_found_exception"; then
 		echo "  ⚠️  Resources index not found, will use default mapping"
@@ -82,7 +82,7 @@ clear_opensearch() {
 	fi
 
 	# Delete all indices
-	if kubectl exec -n $NAMESPACE $OPENSEARCH_POD -- curl -s -X DELETE "http://localhost:9200/_all" >/dev/null 2>&1; then
+	if kubectl exec -n "$NAMESPACE" "$OPENSEARCH_POD" -- curl -s -X DELETE "http://localhost:9200/_all" >/dev/null 2>&1; then
 		echo "  ✓ Deleted all indices"
 	else
 		echo "  ✗ Failed to delete indices"
@@ -94,7 +94,7 @@ clear_opensearch() {
 
 	if [ -n "$RESOURCES_MAPPING" ]; then
 		# Use retrieved mapping from before deletion
-		if kubectl exec -n $NAMESPACE $OPENSEARCH_POD -- curl -s -X PUT "http://localhost:9200/resources" \
+		if kubectl exec -n "$NAMESPACE" "$OPENSEARCH_POD" -- curl -s -X PUT "http://localhost:9200/resources" \
 			-H "Content-Type: application/json" \
 			-d "$RESOURCES_MAPPING" >/dev/null 2>&1; then
 			echo "  ✓ Created resources index with retrieved mapping"
@@ -104,7 +104,7 @@ clear_opensearch() {
 		fi
 	else
 		# Fallback to default mapping
-		if kubectl exec -n $NAMESPACE $OPENSEARCH_POD -- curl -s -X PUT "http://localhost:9200/resources" \
+		if kubectl exec -n "$NAMESPACE" "$OPENSEARCH_POD" -- curl -s -X PUT "http://localhost:9200/resources" \
 			-H "Content-Type: application/json" \
 			-d '{
   "settings": {
@@ -166,8 +166,8 @@ restart_query_service() {
 	echo ""
 	echo "🔄 Restarting query service..."
 
-	kubectl rollout restart deployment lfx-v2-query-service -n $NAMESPACE >/dev/null 2>&1
-	if kubectl rollout status deployment lfx-v2-query-service -n $NAMESPACE --timeout=120s >/dev/null 2>&1; then
+	kubectl rollout restart deployment lfx-v2-query-service -n "$NAMESPACE" >/dev/null 2>&1
+	if kubectl rollout status deployment lfx-v2-query-service -n "$NAMESPACE" --timeout=120s >/dev/null 2>&1; then
 		echo "✅ Query service restarted"
 	else
 		echo "⚠️  Query service restart timed out"
@@ -187,7 +187,7 @@ delete_project_service_pod() {
 	fi
 
 	echo "  Found pod: $PROJECT_POD"
-	if kubectl delete pod "$PROJECT_POD" -n $NAMESPACE >/dev/null 2>&1; then
+	if kubectl delete pod "$PROJECT_POD" -n "$NAMESPACE" >/dev/null 2>&1; then
 		echo "✅ Project service pod deleted"
 	else
 		echo "⚠️  Failed to delete project service pod"
