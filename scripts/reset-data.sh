@@ -1,5 +1,8 @@
 #!/bin/bash
-
+#
+# Copyright The Linux Foundation and each contributor to LFX.
+# SPDX-License-Identifier: MIT
+#
 # Script to reset all data in NATS KV buckets and OpenSearch
 # This clears projects, committees, meetings, and search indices
 #
