@@ -541,6 +541,7 @@ def yaml_render(template_dir, yaml_file):
         env.globals["environ"] = dict(os.environ)
         env.globals["fake"] = fake
         env.globals["timedelta"] = datetime.timedelta
+        env.globals["now_utc"] = lambda: datetime.datetime.now(datetime.UTC)
         env.globals["now_z"] = (
             lambda: datetime.datetime.now(datetime.UTC)
             .isoformat("T")
