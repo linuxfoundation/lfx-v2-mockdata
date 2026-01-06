@@ -115,7 +115,7 @@ buf_board_meeting_create:
           join_url: "https://zoom.example/j/{{ meeting_id }}?pwd={{ fake.pystr() }}"
           transcript_access: public
           # Use the NEXT (future) meeting time for the scheduled meeting
-          start_time: "{{ next_meeting_start_time.isoformat().replace('+00:00', '') }}Z"
+          start_time: "{{ meeting_start_time.isoformat() }}Z"
           # Note, proj_id (sfid) in the source data will have been stripped by lfx-v1-sync-helper.
           project_uid: !ref "buf_board_meeting_project_lookup.steps[0]._response"
           # Note, this is later than `created_at`.
@@ -144,8 +144,6 @@ buf_board_meeting_create:
           - !sub "project_uid:${buf_board_meeting_project_lookup.steps[0]._response}"
           # Committee UID
           - !sub "committee_uid:${buf_committees.steps[?json.name == 'Governing Board']._response.uid | [0]}"
-          # Title
-          - "title:Monthly Board Meeting"
           # Meeting type
           - "meeting_type:Board"
 
@@ -224,10 +222,6 @@ buf_board_meeting_committee_participants_create:
           - "registrant_uid:{{ registrant_id }}"
           # Meeting UID
           - "meeting_uid:{{ meeting_id }}"
-          # First name
-          - !sub "first_name:${buf_board_members.steps[{{ i }}].json.first_name}"
-          # Last name
-          - !sub "last_name:${buf_board_members.steps[{{ i }}].json.last_name}"
           # Email
           - !sub "email:${buf_board_members.steps[{{ i }}].json.email}"
           {% if registrant_username %}
@@ -345,8 +339,6 @@ buf_board_past_meeting_{{ past_meeting_index }}_create:
           - "occurrence_id:{{ occurrence_id }}"
           # Committee UID
           - !sub "committee_uid:${buf_committees.steps[?json.name == 'Governing Board']._response.uid | [0]}"
-          # Title (topic)
-          - "title:Monthly Board Meeting"
 
 buf_board_past_meeting_{{ past_meeting_index }}_access_update:
   type: nats-publish
@@ -673,8 +665,6 @@ buf_board_past_meeting_{{ past_meeting_index }}_summary_create:
           - "meeting_uid:{{ meeting_id }}"
           # Platform
           - "platform:Zoom"
-          # Title
-          - "title:Meeting Summary for Monthly Board Meeting"
 
 buf_board_past_meetings_{{ past_meeting_index }}_summary_access_update:
   type: nats-publish
@@ -785,10 +775,6 @@ buf_board_past_meeting_{{ past_meeting_index }}_participants_create:
           - "past_meeting_uid:{{ meeting_id }}-{{ occurrence_id }}"
           # Meeting UID
           - "meeting_uid:{{ meeting_id }}"
-          # First name
-          - !sub "first_name:${buf_board_members.steps[{{ i }}].json.first_name}"
-          # Last name
-          - !sub "last_name:${buf_board_members.steps[{{ i }}].json.last_name}"
           # Email
           - !sub "email:${buf_board_members.steps[{{ i }}].json.email}"
           {% if member_has_username[i] %}
