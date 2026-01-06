@@ -1,0 +1,55 @@
+# Copyright The Linux Foundation and each contributor to LFX.
+# SPDX-License-Identifier: MIT
+---
+tlf_committee_project_lookup:
+  type: nats-request
+  params:
+    subject: lfx.projects-api.slug_to_uid
+  steps:
+    - raw: tlf
+
+tlf_committees:
+  type: http-request
+  params:
+    url: {{ environ.COMMITTEES_URL | default("http://lfx-v2-committee-service.lfx.svc.cluster.local:8080/committees") }}
+    method: POST
+    headers:
+      Authorization: !jwt bearer=true,aud=lfx-v2-committee-service,principal=clients@m2m_helper
+  steps:
+    - json:
+        name: Governing Board
+        description: >-
+          The Governing Board for The Linux Foundation.
+        category: Board
+        public: true
+        enable_voting: true
+        business_email_required: true
+        project_uid: !ref "tlf_committee_project_lookup.steps[0]._response"
+        requires_review: true
+
+tlf_board_members:
+  type: http-request
+  params:
+    url: !sub "{{ environ.COMMITTEES_URL | default('http://lfx-v2-committee-service.lfx.svc.cluster.local:8080/committees') }}/${ tlf_committees.steps[?json.name == 'Governing Board']._response.uid | [0] }/members?v=1"
+    method: POST
+    headers:
+      Authorization: !jwt bearer=true,aud=lfx-v2-committee-service,principal=clients@m2m_helper
+  steps:
+    - json:
+        appointed_by: Membership Entitlement
+        email: jzemlin@linuxfoundation.org
+        first_name: Jim
+        last_name: Zemlin
+        username: jzemlin
+        organization:
+          name: The Linux Foundation
+          website: https://linuxfoundation.org
+        role:
+          name: Chair
+        status: Active
+        voting:
+          {% set start_date = fake.date_this_year() %}
+          {% set end_date = start_date + timedelta(days=365) %}
+          start_date: "{{ start_date.isoformat() }}"
+          end_date: "{{ end_date.isoformat() }}"
+          status: Voting Rep

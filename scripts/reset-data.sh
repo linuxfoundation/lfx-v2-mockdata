@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: MIT
 #
 # Script to reset all data in NATS KV buckets and OpenSearch
-# This clears projects, committees, meetings, and search indices
+# This clears projects, committees, meetings, mailing lists, and search indices
 #
 # Usage: ./reset-data.sh
 
@@ -34,7 +34,8 @@ clear_nats_buckets() {
 	for bucket in projects project-settings committees committee-settings committee-members \
 		meetings meeting-settings meeting-registrants meeting-rsvps meeting-attachments-metadata \
 		past-meetings past-meeting-participants past-meeting-recordings past-meeting-transcripts \
-		past-meeting-summaries past-meeting-attachments-metadata fga-sync-cache; do
+		past-meeting-summaries past-meeting-attachments-metadata fga-sync-cache \
+		groupsio-mailing-lists groupsio-members groupsio-services; do
 		echo "  Clearing bucket: $bucket"
 		kubectl exec -n $NAMESPACE "$NATS_BOX_POD" -- nats kv rm -f $bucket 2>/dev/null || true
 		if kubectl exec -n $NAMESPACE "$NATS_BOX_POD" -- nats kv add $bucket >/dev/null 2>&1; then
@@ -199,7 +200,7 @@ confirm_reset() {
 	echo ""
 	echo "⚠️  WARNING: This script will PERMANENTLY reset data."
 	echo "    The following will be cleared or restarted:"
-	echo "      - NATS KV buckets for projects, committees, meetings, and related data"
+	echo "      - NATS KV buckets for projects, committees, meetings, mailing lists, and related data"
 	echo "      - All OpenSearch indices (they will be recreated empty)"
 	echo "      - Query service cache (service restart)"
 	echo "      - Project service pod (pod deletion)"
@@ -255,7 +256,8 @@ echo "             meeting-rsvps, meeting-attachments-metadata,"
 echo "             past-meetings, past-meeting-participants,"
 echo "             past-meeting-recordings, past-meeting-transcripts,"
 echo "             past-meeting-summaries, past-meeting-attachments-metadata,"
-echo "             fga-sync-cache"
+echo "             fga-sync-cache, groupsio-mailing-lists,"
+echo "             groupsio-members, groupsio-services"
 echo "  - OpenSearch: all indices (resources recreated)"
 echo "  - Query service cache (restarted)"
 echo "  - Project service pod (deleted)"

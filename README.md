@@ -105,6 +105,7 @@ This script will:
 - Delete the project service pod to clear cache
 
 **Safety Features:**
+
 - Requires typing `RESET` to confirm before proceeding
 - Validates all critical operations and exits on failure
 - Preserves authentication data in `authelia-users` and `authelia-email-otp` buckets
