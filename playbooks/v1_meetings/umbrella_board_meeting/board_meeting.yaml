@@ -132,6 +132,7 @@ buf_board_meeting_create:
           ai_summary_access: public
           # 6-digit numeric passcode.
           passcode: "{{ fake.pyint(min_value=100000, max_value=999999) }}"
+          show_meeting_attendees: true
 
 buf_board_meeting_access_update:
   type: nats-publish
