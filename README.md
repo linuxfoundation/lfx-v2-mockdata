@@ -15,15 +15,36 @@ These instructions and playbooks assume the script's execution environment has a
 
 ## Setup
 
-### 1. Set Environment Variables
+### Quick Setup (Recommended)
 
-#### NATS Configuration
+Use the automated setup script to configure all environment variables:
+
+```bash
+# Source the script to set environment variables in your current shell
+source ./scripts/setup-env.sh
+```
+
+The script will automatically:
+
+- Set `NATS_URL` to the default Kubernetes service URL
+- Retrieve and set `OPENFGA_STORE_ID` from the OpenFGA API
+- Retrieve and set `JWT_RSA_SECRET` from the heimdall-signer-cert secret
+
+After running this script, you can proceed directly to [Running Mock Data Generation](#running-mock-data-generation).
+
+### Manual Setup (Alternative)
+
+If you prefer to set environment variables manually or need to customize values:
+
+#### 1. Set Environment Variables
+
+##### NATS Configuration
 
 ```bash
 export NATS_URL="lfx-platform-nats.lfx.svc.cluster.local:4222"
 ```
 
-#### OpenFGA Configuration
+##### OpenFGA Configuration
 
 First, confirm the OpenFGA Store ID:
 
@@ -37,15 +58,12 @@ Then export the Store ID:
 export OPENFGA_STORE_ID="your-store-id-here"
 ```
 
-#### Authentication Tokens
+##### Authentication Tokens
 
-A Heimdall JWT secret is needed to use the `!jwt` macro in playbooks. If you
-export it as an environmental variable, you can pass it to the mock data tool
-as a command line argument. No `export` step is needed as this is used only
-to populate arguments to the mock data tool shell invocation.
+A Heimdall JWT secret is needed to use the `!jwt` macro in playbooks. Export it as an environmental variable so you can pass it to the mock data tool as a command line argument:
 
 ```bash
-JWT_RSA_SECRET="$(kubectl get secret/heimdall-signer-cert -n lfx -o json | jq -r '.data["signer.pem"]' | base64 --decode)"
+export JWT_RSA_SECRET="$(kubectl get secret/heimdall-signer-cert -n lfx -o json | jq -r '.data["signer.pem"]' | base64 --decode)"
 ```
 
 ## Usage
@@ -65,6 +83,7 @@ uv run lfx-v2-mockdata \
 ```
 
 **Important Notes:**
+
 - **Order matters!** Playbook directories run in the order specified on the command line.
 - Within each directory, playbooks execute in alphabetical order.
 - Dependencies between playbooks should be considered when organizing execution order. Multiple passes are made to allow `!ref` calls to be resolved, but the right order will improve performance and help avoid max-retry errors.
@@ -72,7 +91,26 @@ uv run lfx-v2-mockdata \
 
 ### Wiping Existing Data
 
-If you need to start fresh, wipe the NATS KV buckets:
+If you need to start fresh, use the reset script for a complete data wipe:
+
+```bash
+./scripts/reset-data.sh
+```
+
+This script will:
+
+- Clear all NATS KV buckets (projects, committees, meetings, etc.)
+- Clear and recreate OpenSearch indices (using current mapping)
+- Restart the query service to clear cache
+- Delete the project service pod to clear cache
+
+**Safety Features:**
+- Requires typing `RESET` to confirm before proceeding
+- Validates all critical operations and exits on failure
+- Preserves authentication data in `authelia-users` and `authelia-email-otp` buckets
+- Automatically retrieves and uses current OpenSearch mapping before recreation
+
+**Manual Alternative:** If you prefer to wipe only NATS KV buckets manually:
 
 ```bash
 for bucket in projects project-settings committees committee-settings committee-members; do
@@ -81,19 +119,23 @@ for bucket in projects project-settings committees committee-settings committee-
 done
 ```
 
-*Consider updating this documentation to also provide steps for recreating the OpenSearch index. Stale OpenFGA tuples may also be deleted, but unlike OpenSearch data, it won't impact the refreshed data to keep them.*
+_Note: The reset script is the recommended approach as it handles OpenSearch indices and service caches comprehensively._
 
 ### Running After Data Wipe
 
-When running after wiping data, you need to recreate the ROOT project first, with an extra playbook at the front. This `recreate_root_project` playbook bypasses the API and directly creates a new ROOT project in the NATS KV bucket.
+After using the reset script, the ROOT project is automatically recreated by the project service pod restart. You can run the mock data tool normally:
 
 ```bash
 uv run lfx-v2-mockdata \
     --jwt-rsa-secret "$JWT_RSA_SECRET" \
     -t playbooks/projects/{root_project_access,base_projects,extra_projects} playbooks/committees/base_committees
-    -t playbooks/projects/recreate_root_project playbooks/projects/{root_project_access,base_projects,extra_projects} playbooks/committees/base_committees
 ```
 
+**Note:** If you wiped data manually (without the reset script), you'll need to delete the project service pod to trigger ROOT project recreation, as it handles permissions correctly:
+
+```bash
+kubectl delete pod -n lfx $(kubectl get pods -n lfx --no-headers | grep project-service | awk '{print $1}')
+```
 
 ## Playbook Structure
 
