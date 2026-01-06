@@ -22,11 +22,15 @@ tlf_groupsio_service:
         project_uid: !ref "tlf_mailing_list_project_lookup.steps[0]._response"
         project_name: The Linux Foundation
         type: primary
-        domain: linuxfoundation.example.com
+        domain: {{ fake.domain_name() }}
         global_owners:
-          - project_super_admin@example.com
-        writers:
-          - project_super_admin
+          {% for _ in range(fake.pyint(min_value=1, max_value=3)) %}
+          - {{ fake.ascii_company_email() }}
+          {% endfor %}
+
+# Mailing list types and access configurations
+{% set list_types = ['announcement', 'discussion_open', 'discussion_moderated'] %}
+{% set access_types = ['public', 'approval_required', 'invite_only'] %}
 
 # Create mailing lists for TLF
 tlf_mailing_lists:
@@ -37,70 +41,27 @@ tlf_mailing_lists:
     headers:
       Authorization: !jwt bearer=true,aud=lfx-v2-mailing-list-service,principal=clients@m2m_helper
   steps:
-    # Board announcements mailing list - tied to Governing Board committee
+    {% for i in range(fake.pyint(min_value=3, max_value=8)) %}
+    {% set list_name = fake.slug() %}
+    {% set list_type = fake.random_element(list_types) %}
+    {% set access_type = fake.random_element(access_types) %}
+    {% set is_public = fake.pybool() %}
+    {% set has_committee = fake.pybool() and access_type == 'invite_only' %}
     - json:
-        group_name: board-announce
-        title: Board Announcements
+        group_name: {{ list_name | lower }}
+        title: {{ fake.catch_phrase() }}
         description: >-
-          Official announcements from The Linux Foundation Board of Directors.
-          This is a read-only list for board communications and updates.
-        public: false
-        type: announcement
-        audience_access: invite_only
-        subject_tag: "[TLF-Board]"
+          {{ fake.paragraph(nb_sentences=3) }}
+        public: {{ is_public | lower }}
+        type: {{ list_type }}
+        audience_access: {{ access_type }}
+        subject_tag: "[{{ list_name | upper | replace('-', '') }}]"
         service_uid: !ref "tlf_groupsio_service.steps[0]._response.uid"
-        writers:
-          - project_super_admin
+        {% if has_committee %}
         committees:
           - uid: !ref "tlf_committees.steps[?json.name == 'Governing Board']._response.uid | [0]"
             allowed_voting_statuses:
               - Voting Rep
               - Alternate Voting Rep
-    # Board discussion mailing list - tied to Governing Board committee
-    - json:
-        group_name: board-discuss
-        title: Board Discussion
-        description: >-
-          Discussion forum for The Linux Foundation Board of Directors.
-          Moderated discussions on governance and strategic matters.
-        public: false
-        type: discussion_moderated
-        audience_access: invite_only
-        subject_tag: "[TLF-Board-Discuss]"
-        service_uid: !ref "tlf_groupsio_service.steps[0]._response.uid"
-        writers:
-          - project_super_admin
-        committees:
-          - uid: !ref "tlf_committees.steps[?json.name == 'Governing Board']._response.uid | [0]"
-            allowed_voting_statuses:
-              - Voting Rep
-              - Alternate Voting Rep
-              - Observer
-    # General community mailing list
-    - json:
-        group_name: community
-        title: TLF Community
-        description: >-
-          General community mailing list for The Linux Foundation members and
-          contributors. Open discussions about LF projects and initiatives.
-        public: false
-        type: discussion_open
-        audience_access: public
-        subject_tag: "[TLF-Community]"
-        service_uid: !ref "tlf_groupsio_service.steps[0]._response.uid"
-        writers:
-          - project_super_admin
-    # Technical steering committee mailing list
-    - json:
-        group_name: tsc-discuss
-        title: Technical Steering Committee
-        description: >-
-          Technical Steering Committee discussions for The Linux Foundation.
-          Forum for technical governance and cross-project coordination.
-        public: false
-        type: discussion_moderated
-        audience_access: approval_required
-        subject_tag: "[TLF-TSC]"
-        service_uid: !ref "tlf_groupsio_service.steps[0]._response.uid"
-        writers:
-          - project_super_admin
+        {% endif %}
+    {% endfor %}

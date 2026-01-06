@@ -21,7 +21,7 @@ buf_committees:
         description: >-
           The Governing Board for the Big Umbrella Foundation (BUF).
         category: Board
-        public: true
+        public: false
         enable_voting: true
         business_email_required: true
         project_uid: !ref "buf_committee_project_lookup.steps[0]._response"
@@ -31,7 +31,7 @@ buf_committees:
         description: >-
           The Finance Committee for the Big Umbrella Foundation (BUF).
         category: Finance Committee
-        public: true
+        public: false
         enable_voting: true
         business_email_required: true
         parent_uid: !ref "buf_committees.steps[?json.name == 'Governing Board']._response.uid | [0]"
@@ -49,7 +49,7 @@ buf_committees:
         description: >-
           The Technical Oversight Committee for the Big Umbrella Foundation (BUF).
         category: Technical Oversight Committee
-        public: true
+        public: false
         enable_voting: true
         business_email_required: true
         project_uid: !ref "buf_committee_project_lookup.steps[0]._response"
