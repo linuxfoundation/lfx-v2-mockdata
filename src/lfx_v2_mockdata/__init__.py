@@ -797,12 +797,21 @@ def run_http_request_playbook(name: str, playbook: dict) -> None:
             response.raise_for_status()
             # Store the response in the playbook for future reference.
         except requests.exceptions.RequestException as e:
+            # Try to get detailed error message from response body
+            error_detail = str(e)
+            if hasattr(e, "response") and e.response is not None:
+                error_body = e.response.text
+                if error_body:
+                    error_detail = f"{e}\nResponse body: {error_body}"
+
             if cli_args.force:
-                logger.error("Request failed", error=str(e), playbook=name)
+                logger.error("Request failed", error=error_detail, playbook=name)
                 # Add a placeholder response to prevent re-running.
                 step_payload["_response"] = {}
                 continue
-            raise
+
+            # Re-raise with enhanced error message
+            raise requests.exceptions.RequestException(error_detail) from e
         try:
             r_dict = response.json()
             step_payload["_response"] = r_dict
