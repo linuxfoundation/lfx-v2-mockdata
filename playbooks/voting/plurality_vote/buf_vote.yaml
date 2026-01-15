@@ -44,7 +44,7 @@ buf_board_vote_create:
           end_time: "{{ fake.date_time_between(start_date='+30d', end_date='+90d') }}"
           last_modified_time: "{{ fake.date_time_between(start_date='-2d', end_date='-1d') }}"
           name: Important Vote
-         NumResponseReceived: 0
+          NumResponseReceived: 0
           num_winners: 0
           poll_questions:
             - choices:
