@@ -28,7 +28,7 @@ buf_board_survey_create:
           id: "{{ survey_id }}"
           collector_url: "https://{{ fake.safe_domain_name() }}/r/1234567"
           committees:
-            - committee_id:
+            - committee_id: lf23456
               committee_uid: !ref "buf_committees.steps[?json.name == 'Governing Board']._response.uid | [0]"
               committee_name: !ref "buf_committees.steps[?json.name == 'Governing Board']._response.name | [0]"
               nps_value: 0
@@ -238,7 +238,7 @@ buf_board_survey_create:
           # Prefixed survey_uid
           - "survey_uid:{{ survey_id }}"
           # Project UID(s)
-          - !sub "project_uid:${buf_board_vote_project_lookup.steps[0]._response}"
+          - !sub "project_uid:${buf_board_survey_project_lookup.steps[0]._response}"
           # Committee UID(s)
           - !sub "committee_uid:${buf_committees.steps[?json.name == 'Governing Board']._response.uid | [0]}"
 
@@ -257,6 +257,102 @@ buf_board_survey_access_create:
           relations: {}
           references:
             project:
-              - !ref "buf_board_vote_project_lookup.steps[0]._response"
+              - !ref "buf_board_survey_project_lookup.steps[0]._response"
             committee:
               - !ref "buf_committees.steps[?json.name == 'Governing Board']._response.uid | [0]"
+
+buf_board_survey_response_create:
+  type: nats-publish
+  params:
+    # Create the vote in OpenSearch (via indexer).
+    subject: lfx.index.survey_response
+  steps:
+    - json:
+        action: created
+        headers:
+          authorization: !jwt bearer=true,aud=lfx-v2-project-service,principal={{ fake.user_name() }},email={{ fake.email() }}
+          x-on-behalf-of: !jwt bearer=true,aud=lfx-v2-project-service,principal=clients@m2m_helper
+        data:
+          {% set survey_response_id = fake.uuid4() -%}
+          id: "{{ survey_response_id }}"
+          survey_id: "{{ survey_id }}"
+          committee_id: lf12345
+          committee_uid: !ref "buf_committees.steps[?json.name == 'Governing Board']._response.uid | [0]"
+          committee_member_id: lf45678
+          committee_voting_enabled: true
+          created_at: "{{ fake.date_time_between('-30d', '-15d') }}"
+          email: "{{ fake.ascii_safe_email() }}"
+          email_opened_first_time: "{{ fake.date_time_between('-14d', '-13d') }}"
+          email_opened_last_time: "{{ fake.date_time_between('-12d', '-11d') }}"
+          excluded: false
+          first_name: "{{ fake.first_name() }}"
+          job_title: "Super cool job title"
+          last_name: "{{ fake.last_name() }}"
+          last_received_time: "{{ fake.date_time_between('-20d', '-16d') }}"
+          link_clicked_first_time: ''
+          link_clicked_last_time: ''
+          membership_tier: ''
+          nps_value: 0
+          num_automated_reminders: 3
+          organization:
+            id: lf67890
+            name: "{{ fake.company() }}"
+          project:
+            id: lf12345
+            name: Big Umbrella Foundation
+            project_uid: !ref "buf_board_survey_project_lookup.steps[0]._response"
+          response_datetime: ''
+          role: None
+          ses_bounce_diagnostic_code: ''
+          ses_bounce_subtype: ''
+          ses_bounce_type: ''
+          ses_complaint_date: ''
+          ses_complaint_exists: false
+          ses_complaint_type: ''
+          ses_delivery_successful: true
+          ses_message_id: ''
+          survey_id: "{{ survey_id }}"
+          survey_link: "https://{{ fake.safe_domain_name() }}/12345?query=1&query2=2"
+          survey_monkey_question_answers: {}
+          survey_monkey_respondent_id: null
+          username: project_super_admin
+          voting_status: Voting Rep
+          
+        indexing_config:
+          object_id: "{{ survey_response_id }}"
+          public: false
+          access_check_object: "survey_response:{{ survey_response_id }}"
+          access_check_relation: viewer
+          history_check_object: "survey_response:{{ survey_response_id }}"
+          history_check_relation: auditor
+          {# indexing_config supports templating of its own #}
+        tags:
+          # Plain UID (for broad text search)
+          - "{{ survey_response_id }}"
+          # Prefixed survey_uid
+          - "survey_response_uid:{{ survey_response_id }}"
+          # Project UID(s)
+          - !sub "project_uid:${buf_board_survey_project_lookup.steps[0]._response}"
+          # Committee UID(s)
+          - !sub "committee_uid:${buf_committees.steps[?json.name == 'Governing Board']._response.uid | [0]}"
+          # Survey UID
+          - "survey_uid:{{survey_id}}"
+
+buf_board_survey_response_access_create:
+  type: nats-publish
+  params:
+    # Add survey relationships in OpenFGA (via fga-sync).
+    subject: lfx.fga-sync.update_access
+  steps:
+    - json:
+        object_type: survey_response
+        operation: update_access
+        data:
+          uid: "{{ survey_response_id }}"
+          public: false
+          relations:
+            viewer: 
+              - "project_super_admin"
+          references:
+            survey:
+              - "{{ survey_id }}"
