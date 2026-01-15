@@ -37,6 +37,13 @@ tlf_groupsio_service:
 {% set access_types = ['public', 'approval_required', 'invite_only'] %}
 {% set num_mailing_lists = fake.pyint(min_value=3, max_value=8) %}
 
+# Pre-generate member counts for each mailing list so we can use them
+# both for member creation and subscriber_count updates
+{% set member_counts = [] %}
+{% for i in range(num_mailing_lists) %}
+  {% if member_counts.append(fake.pyint(min_value=5, max_value=12)) %}{% endif %}
+{% endfor %}
+
 # Create mailing lists for TLF
 tlf_mailing_lists:
   type: http-request
@@ -85,7 +92,7 @@ tlf_mailing_list_{{ list_idx }}_members:
     headers:
       Authorization: !jwt bearer=true,aud=lfx-v2-mailing-list-service,principal=clients@m2m_helper
   steps:
-    {% for i in range(fake.pyint(min_value=5, max_value=12)) %}
+    {% for i in range(member_counts[list_idx]) %}
     - json:
         email: {{ fake.ascii_company_email() }}
         first_name: {{ fake.first_name() }}
