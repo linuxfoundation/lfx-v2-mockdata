@@ -1,0 +1,262 @@
+# Copyright The Linux Foundation and each contributor to LFX.
+# SPDX-License-Identifier: MIT
+#
+# This scheduled meeting, its past meetings, registrants, attendees, and
+# artifacts all re-use a lot of variables and data, therefore it didn't make as
+# much sense to to split the playbooks across multiple files.
+---
+buf_board_survey_project_lookup:
+  type: nats-request
+  params:
+    subject: lfx.projects-api.slug_to_uid
+  steps:
+    - raw: buf
+
+buf_board_survey_create:
+  type: nats-publish
+  params:
+    # Create the vote in OpenSearch (via indexer).
+    subject: lfx.index.survey
+  steps:
+    - json:
+        action: created
+        headers:
+          authorization: !jwt bearer=true,aud=lfx-v2-project-service,principal={{ fake.user_name() }},email={{ fake.email() }}
+          x-on-behalf-of: !jwt bearer=true,aud=lfx-v2-project-service,principal=clients@m2m_helper
+        data:
+          {% set survey_id = fake.uuid4() -%}
+          id: "{{ survey_id }}"
+          collector_url: "https://{{ fake.safe_domain_name() }}/r/1234567"
+          committees:
+            - committee_id:
+              committee_uid: !ref "buf_committees.steps[?json.name == 'Governing Board']._response.uid | [0]"
+              committee_name: !ref "buf_committees.steps[?json.name == 'Governing Board']._response.name | [0]"
+              nps_value: 0
+              num_detractors: 0
+              num_passives: 0
+              num_promoters: 0 
+              project_id: lf12345
+              project_uid: !ref "buf_board_survey_project_lookup.steps[0]._response"
+              project_name: Big Umbrella Foundation
+              total_delivery_errors: 0
+              total_recipients: 1
+              total_recipients_clicked: 1
+              total_recipients_opened: 1
+              total_recipients_sent: 1
+              total_responses: 0
+          committee_category: !ref "buf_committees.steps[?json.name == 'Governing Board']._response.category | [0]"
+          committee_voting_enabled: true
+          created_at: "{{ fake.date_time_between('-30d', '-15d') }}"
+          creator_name: "{{ fake.first_name() }} {{ fake.last_name() }}"
+          creator_username: project_super_admin
+          email_body: |
+                      <!DOCTYPE html>
+                      <html lang="en">
+
+                      <head>
+                        <meta charset="UTF-8">
+                        <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&family=Roboto+Slab:wght@700&display=swap"
+                          rel="stylesheet">
+                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                        <title>Kubernetes Survey Email</title>
+                        <style>
+                          @import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&display=swap');
+                          @import url('https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@700&display=swap');
+
+                          body {
+                            margin: 40px 0;
+                            padding: 0;
+                            font-family: 'Open Sans', Arial, sans-serif;
+                            background-color: #f4f4f4;
+                          }
+
+                          .container {
+                            max-width: 600px;
+                            margin: 0 auto;
+                            background-color: #ffffff;
+                            padding: 40px;
+                            border-radius: 8px;
+                            border: 1px solid #E5E7EB;
+                            margin-bottom: 32px;
+                          }
+
+                          .header {
+                            text-align: left;
+                          }
+
+                          .header img {
+                            max-height: 80px;
+                            max-width: 200px;
+                            width: auto;
+                            height: auto;
+                          }
+
+                          .content {
+                            font-size: 13px;
+                            line-height: 20px;
+                            color: #000;
+                            font-family: 'Open Sans', Arial, sans-serif;
+                          }
+
+                          .content h2 {
+                            color: #333333;
+                            font-size: 24px;
+                            margin-bottom: 32px;
+                            line-height: 26px;
+                            font-family: 'Roboto Slab', Arial, sans-serif;
+                          }
+
+                          .container a {
+                            color: #0094FF;
+                            text-decoration: none;
+                          }
+
+                          .cta-button {
+                            display: block;
+                            width: 100%;
+                            text-align: center;
+                            background-color: #007bff;
+                            color: #ffffff !important;
+                            padding: 15px 0;
+                            border-radius: 5px;
+                            text-decoration: none;
+                            font-size: 16px;
+                            font-family: 'Roboto Slab', Arial, sans-serif;
+                            margin-top: 2px;
+                          }
+
+                          .signature {
+                            font-size: 13px;
+                            color: #000;
+                            font-family: 'Open Sans', Arial, sans-serif;
+                          }
+
+                          .footer {
+                            max-width: 600px;
+                            font-size: 12px;
+                            color: #6B7280;
+                            text-align: left;
+                            margin-top: 32px;
+                            margin: 0 auto;
+                          }
+
+                          .footer p {
+                            margin: 10px 0;
+                          }
+
+                          .footer a {
+                            color: #6B7280;
+                            text-decoration: underline;
+                          }
+
+                        </style>
+                      </head>
+
+                      <body>
+                        <div class="container">
+                          <div class="header">
+                            <img src="{{ '{{.ProjectLogo}}' }}" alt="{{ '{{.ProjectName}}' }}">
+                          </div>
+                          <div class="content">
+                            <h2>{{ '{{.FirstName}}' }}, Your Voice Matters! - {{ '{{.ProjectName}}' }}, {{ '{{.CommitteeType}}' }}</h2>
+                            Thank you for being a valuable member of the {{ '{{.CommitteeName}}' }}. We respect your opinion as your feedback helps us get better every day.<br /><br />Please share your experience by clicking the button below and completing a short survey. It will take under a minute.<br /><br /><a href="{{ '{{.SurveyLink}}' }}" class="cta-button">Take Survey</a><br><div>Button not visible? Copy and paste the following link into your browser instead:<br /></div>
+
+                              <div>{{ '{{.SurveyLink}}' }}</div>
+                      <br /><br />Thank you,<br />{{ '{{.ExecutiveDirectorName}}' }}<br />Executive Director, {{ '{{.ProjectName}}' }}<br /><br />{{ '{{.TrackerAlertPartial}}' }}
+                          </div>
+                        </div>
+                        <div class="footer">
+                          <p>You received this email because you are listed as a project member of the {{ '{{.ProjectName}}' }}, a project under The Linux Foundation.
+                          If you prefer not to receive future survey invitations, please contact unsubscribesurveys@linuxfoundation.org.</p>
+                          <p>Feedback will be processed in accordance with The Linux Foundation's
+                          <a href="https://www.linuxfoundation.org/legal/privacy-policy">Privacy Policy</a>. Please note that responses are not anonymous and
+                          will be accessible to the Executive Director and Program Manager of {{ '{{.ProjectName}}' }}, as well as a few members of The Linux Foundation who manage
+                          this survey.</p>
+                          <p>This email was sent by The Linux Foundation.</p>
+                          <p>548 Market St, PMB 57274, San Francisco, CA 94104-5401, United States</p>
+                        </div>
+                      </body>
+
+                      </html>
+          email_body_text: |
+                            Thank you for being a valuable member of the {{ '{{.CommitteeName}}' }}. We respect your opinion as your feedback helps us get better every day.
+
+                            Please share your experience by clicking the button below and completing a short survey. It will take under a minute.
+
+                            <a href="{{ '{{.SurveyLink}}' }}" class="cta-button">Take Survey</a><br><div>Button not visible? Copy and paste the following link into your browser instead:
+                            </div>
+
+                                    <div>{{ '{{.SurveyLink}}' }}</div>
+
+
+                            Thank you,
+                            {{ '{{.ExecutiveDirectorName}}' }}
+                            Executive Director, {{ '{{.ProjectName}}' }}
+
+                            {{ '{{.TrackerAlertPartial}}' }}
+
+                            {{ '{{.SurveyLink}}' }}
+          email_subject: "{{ '{{.FirstName}}, Your Voice Matters! - {{.ProjectName}}, {{.CommitteeType}}' }}"
+          is_nps_survey: true
+          is_project_survey: true
+          last_modified_at: "{{ fake.date_time_between('-14d', '-10d')}}"
+          last_modified_by: project_super_admin
+          nps_value: 0
+          num_detractors: 0
+          num_passives: 0
+          num_promoters: 0
+          send_immediately: true
+          stage_filter: all
+          survey_cutoff_date: "{{ fake.date_time_between('+30d', '+90d') }}"
+          survey_monkey_id: 123456
+          survey_reminder_rate_days: 7
+          survey_send_date: "{{ fake.date_time_between('+6d', '+3d')}}"
+          survey_status: sent
+          survey_title: Mock Data Board Survey
+          total_delivery_errors: 0
+          total_recipients: 1
+          total_recipients_clicked: 1
+          total_recipients_opened: 1
+          total_recipients_sent: 1
+          total_responses: 0
+          
+        indexing_config:
+          object_id: "{{ survey_id }}"
+          public: false
+          access_check_object: "survey:{{ survey_id }}"
+          access_check_relation: viewer
+          history_check_object: "survey:{{ survey_id }}"
+          history_check_relation: auditor
+          {# indexing_config supports templating of its own #}
+          sort_name: "{{ '{{ survey_title }}' }}"
+          name_and_aliases:
+            - "{{ '{{ survey_title }}' }}"
+          fulltext: "{{ '{{ survey_title }}' }}"
+        tags:
+          # Plain UID (for broad text search)
+          - "{{ survey_id }}"
+          # Prefixed survey_uid
+          - "survey_uid:{{ survey_id }}"
+          # Project UID(s)
+          - !sub "project_uid:${buf_board_vote_project_lookup.steps[0]._response}"
+          # Committee UID(s)
+          - !sub "committee_uid:${buf_committees.steps[?json.name == 'Governing Board']._response.uid | [0]}"
+
+buf_board_survey_access_create:
+  type: nats-publish
+  params:
+    # Add survey relationships in OpenFGA (via fga-sync).
+    subject: lfx.fga-sync.update_access
+  steps:
+    - json:
+        object_type: survey
+        operation: update_access
+        data:
+          uid: "{{ survey_id }}"
+          public: false
+          relations: {}
+          references:
+            project:
+              - !ref "buf_board_vote_project_lookup.steps[0]._response"
+            committee:
+              - !ref "buf_committees.steps[?json.name == 'Governing Board']._response.uid | [0]"
