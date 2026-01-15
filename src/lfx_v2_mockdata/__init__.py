@@ -541,11 +541,7 @@ def yaml_render(template_dir, yaml_file):
         env.globals["environ"] = dict(os.environ)
         env.globals["fake"] = fake
         env.globals["timedelta"] = datetime.timedelta
-        env.globals["now_z"] = (
-            lambda: datetime.datetime.now(datetime.UTC)
-            .isoformat("T")
-            .replace("+00:00", "Z")
-        )
+        env.globals["tz_utc"] = datetime.UTC
         env.globals["slug_from_project_name"] = slug_from_project_name
         # Store the environment in the context for use by the !include
         # constructor/macro and remaining YAML files in this context/directory.
