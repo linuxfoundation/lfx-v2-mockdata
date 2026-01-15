@@ -30,7 +30,7 @@ buf_board_vote_create:
         data:
           {% set vote_id = fake.uuid4() -%}
           # Renamed from `poll_id` in v1.
-          id: "{{ vote_id }}"
+          uid: "{{ vote_id }}"
           poll_id: "{{ vote_id }}"
           committee_filers: ["Voting Rep"]
           {# committe_id is the v1 committee id, committee_uid is the v2 #}
@@ -44,7 +44,7 @@ buf_board_vote_create:
           end_time: "{{ fake.date_time_between(start_date='+30d', end_date='+90d') }}"
           last_modified_time: "{{ fake.date_time_between(start_date='-2d', end_date='-1d') }}"
           name: Important Vote
-          NumResponseReceived: 0
+          num_response_received: 0
           num_winners: 0
           poll_questions:
             - choices:
@@ -78,15 +78,9 @@ buf_board_vote_create:
           name_and_aliases:
             - "{{ '{{ name }}' }}"
           fulltext: "{{ '{{ description }}' }}"
-        tags:
-          # Plain UID (for broad text search)
-          - "{{ vote_id }}"
-          # Prefixed meeting_uid
-          - "vote_uid:{{ vote_id }}"
-          # Project UID
-          - !sub "project_uid:${buf_board_vote_project_lookup.steps[0]._response}"
-          # Committee UID
-          - !sub "committee_uid:${buf_committees.steps[?json.name == 'Governing Board']._response.uid | [0]}"
+          parent_refs:
+            - !sub "project:${buf_board_vote_project_lookup.steps[0]._response}"
+            - !sub "committee:${buf_committees.steps[?json.name == 'Governing Board']._response.uid | [0]}"
 
 buf_vote_access_create:
   type: nats-publish
@@ -122,10 +116,13 @@ buf_board_individual_votes_create:
           {# Confusingly, this is the individual vote id in v1, NOT a reference to the vote object #}
           {% set individual_vote_id = fake.uuid4() -%}
           vote_id: "{{ individual_vote_id }}"
+          vote_uid: "{{ individual_vote_id }}"
           {# poll_id is the reference to the vote object #}
           poll_id: "{{ vote_id }}"
+          poll_uid: "{{ vote_id }}"
           poll_answers: null
           project_id: lf12345
+          project_uid: !ref "buf_committee_project_lookup.steps[0]._response"
           ses_bounce_subtype: ''
           ses_bounce_type: ''
           ses_complaint_date: ''
@@ -160,20 +157,12 @@ buf_board_individual_votes_create:
           public: false
           access_check_object: "individual_vote:{{ individual_vote_id }}"
           access_check_relation: viewer
-          history_check_object: "individual_vote:{{ individiual_evote_id }}"
+          history_check_object: "individual_vote:{{ individual_vote_id }}"
           history_check_relation: auditor
           {# indexing_config supports templating of its own #}
-        tags:
-          # Plain UID (for broad text search)
-          - "{{ vote_id }}"
-          # Prefixed individual_vote_uid
-          - "individual_vote_uid:{{ individual_vote_id }}"
-          # Prefixed vote_uid
-#         - "vote_uid:{{ vote_id }}"
-          # Project UID
-          - !sub "project_uid:${buf_board_vote_project_lookup.steps[0]._response}"
-          # Committee UID
-          - !sub "committee_uid:${buf_committees.steps[?json.name == 'Governing Board']._response.uid | [0]}"
+          parent_refs:
+            - !sub "project:${buf_board_vote_project_lookup.steps[0]._response}"
+            - "vote_uid:{{ vote_id }}"
 
 buf_individual_votes_access_create:
   type: nats-publish
@@ -189,6 +178,8 @@ buf_individual_votes_access_create:
           public: false
           relations:
             viewer:
+              - "project_super_admin"
+            writer:
               - "project_super_admin"
           references:
             vote:
