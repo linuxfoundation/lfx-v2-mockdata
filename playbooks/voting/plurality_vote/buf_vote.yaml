@@ -1,0 +1,195 @@
+# Copyright The Linux Foundation and each contributor to LFX.
+# SPDX-License-Identifier: MIT
+#
+# This scheduled meeting, its past meetings, registrants, attendees, and
+# artifacts all re-use a lot of variables and data, therefore it didn't make as
+# much sense to to split the playbooks across multiple files.
+---
+buf_board_vote_project_lookup:
+  type: nats-request
+  params:
+    subject: lfx.projects-api.slug_to_uid
+  steps:
+    - raw: buf
+
+{# This *must* match the range size used for the BUF board committee member
+list. #}
+{% set board_member_count = 8 -%}
+
+buf_board_vote_create:
+  type: nats-publish
+  params:
+    # Create the vote in OpenSearch (via indexer).
+    subject: lfx.index.vote
+  steps:
+    - json:
+        action: created
+        headers:
+          authorization: !jwt bearer=true,aud=lfx-v2-project-service,principal={{ fake.user_name() }},email={{ fake.email() }}
+          x-on-behalf-of: !jwt bearer=true,aud=lfx-v2-project-service,principal=clients@m2m_helper
+        data:
+          {% set vote_id = fake.uuid4() -%}
+          # Renamed from `poll_id` in v1.
+          id: "{{ vote_id }}"
+          poll_id: "{{ vote_id }}"
+          committee_filers: ["Voting Rep"]
+          {# committe_id is the v1 committee id, committee_uid is the v2 #}
+          committee_id: "{{ fake.uuid4() }}"
+          committee_uid: !ref "buf_committees.steps[?json.name == 'Governing Board']._response.uid | [0]"
+          committee_name: !ref "buf_committees.steps[?json.name == 'Governing Board']._response.name | [0]"
+          committee_type: !ref "buf_committees.steps[?json.name == 'Governing Board']._response.category | [0]"
+          committee_voting_status: True
+          creation_time: "{{ fake.date_time_between(start_date='-30d', end_date='-3d')}}"
+          description: A vote created by the mockdata playbook
+          end_time: "{{ fake.date_time_between(start_date='+30d', end_date='+90d') }}"
+          last_modified_time: "{{ fake.date_time_between(start_date='-2d', end_date='-1d') }}"
+          name: Important Vote
+         NumResponseReceived: 0
+          num_winners: 0
+          poll_questions:
+            - choices:
+              - choice_id: "{{ fake.uuid4() }}"
+                choice_text: Approve
+              - choice_id: "{{ fake.uuid4() }}"
+                choice_text: Abstain
+              - choice_id: "{{ fake.uuid4() }}"
+                choice_text: "Do not approve"
+              prompt: Do you approve the meeting minutes from our previous meeting?
+              question_id: "{{ fake.uuid4() }}"
+              type: single_choice
+          poll_type: generic
+          {# v2 project uid }
+          project_uid: !ref "buf_committee_project_lookup.steps[0]._response"
+          {# Fake v1 project id #}
+          project_id: lf12345
+          project_name:
+          pseudo_anonymity: false
+          status: active
+          total_voting_request_invitations: {{ board_member_count }}
+        indexing_config:
+          object_id: "{{ vote_id }}"
+          public: false
+          access_check_object: "vote:{{ vote_id }}"
+          access_check_relation: viewer
+          history_check_object: "vote:{{ vote_id }}"
+          history_check_relation: auditor
+          {# indexing_config supports templating of its own #}
+          sort_name: "{{ '{{ name }}' }}"
+          name_and_aliases:
+            - "{{ '{{ name }}' }}"
+          fulltext: "{{ '{{ description }}' }}"
+        tags:
+          # Plain UID (for broad text search)
+          - "{{ vote_id }}"
+          # Prefixed meeting_uid
+          - "vote_uid:{{ vote_id }}"
+          # Project UID
+          - !sub "project_uid:${buf_board_vote_project_lookup.steps[0]._response}"
+          # Committee UID
+          - !sub "committee_uid:${buf_committees.steps[?json.name == 'Governing Board']._response.uid | [0]}"
+
+buf_vote_access_create:
+  type: nats-publish
+  params:
+    # Add meeting relationships in OpenFGA (via fga-sync).
+    subject: lfx.fga-sync.update_access
+  steps:
+    - json:
+        object_type: vote
+        operation: update_access
+        data:
+          uid: "{{ vote_id }}"
+          public: false
+          relations: {}
+          references:
+            project:
+              - !ref "buf_board_vote_project_lookup.steps[0]._response"
+            committee:
+              - !ref "buf_committees.steps[?json.name == 'Governing Board']._response.uid | [0]"
+
+buf_board_individual_votes_create:
+  type: nats-publish
+  params:
+    # Create the vote in OpenSearch (via indexer).
+    subject: lfx.index.individual_vote
+  steps:
+    - json:
+        action: created
+        headers:
+          authorization: !jwt bearer=true,aud=lfx-v2-project-service,principal={{ fake.user_name() }},email={{ fake.email() }}
+          x-on-behalf-of: !jwt bearer=true,aud=lfx-v2-project-service,principal=clients@m2m_helper
+        data:
+          {# Confusingly, this is the individual vote id in v1, NOT a reference to the vote object #}
+          {% set individual_vote_id = fake.uuid4() -%}
+          vote_id: "{{ individual_vote_id }}"
+          {# poll_id is the reference to the vote object #}
+          poll_id: "{{ vote_id }}"
+          poll_answers: null
+          project_id: lf12345
+          ses_bounce_subtype: ''
+          ses_bounce_type: ''
+          ses_complaint_date: ''
+          ses_complaint_exists: false
+          ses_complaint_type: ''
+          ses_delivery_successful: true
+          ses_email_opened: true
+          ses_email_opened_first_time: "{{ fake.date_time_between('-2d', '-3h') }}"
+          ses_email_opened_last_time: "{{ fake.date_time_between('-3h', '-1h') }}"
+          ses_link_clicked: false
+          ses_link_clicked_first_time: ''
+          ses_link_clicked_last_time: ''
+          ses_message_id: "12345"
+          ses_message_last_sent_time: "{{ fake.date_time_between('-12h', '-6h') }}"
+          user_email: "{{ fake.ascii_safe_email() }}"
+          {# reference to v1 user id #}
+          user_id: lf4567
+          {# Actual name of user, not login name #}
+          user_name: "{{ fake.first_name() }} {{ fake.last_name() }}"
+          {# login username #}
+          username: "project_super_admin"
+          user_org_id: lf6789
+          user_org_name: "{{ fake.company() }}"
+          user_role: None
+          user_voting_status: Voting Rep
+          voter_removed: false
+          vote_creation_time: ''
+          vote_status: 'awaiting response'
+
+        indexing_config:
+          object_id: "{{ vote_id }}"
+          public: false
+          access_check_object: "individual_vote:{{ individual_vote_id }}"
+          access_check_relation: viewer
+          history_check_object: "individual_vote:{{ individiual_evote_id }}"
+          history_check_relation: auditor
+          {# indexing_config supports templating of its own #}
+        tags:
+          # Plain UID (for broad text search)
+          - "{{ vote_id }}"
+          # Prefixed individual_vote_uid
+          - "individual_vote_uid:{{ individual_vote_id }}"
+          # Prefixed vote_uid
+#         - "vote_uid:{{ vote_id }}"
+          # Project UID
+          - !sub "project_uid:${buf_board_vote_project_lookup.steps[0]._response}"
+          # Committee UID
+          - !sub "committee_uid:${buf_committees.steps[?json.name == 'Governing Board']._response.uid | [0]}"
+
+buf_individual_votes_access_create:
+  type: nats-publish
+  params:
+    # Add meeting relationships in OpenFGA (via fga-sync).
+    subject: lfx.fga-sync.update_access
+  steps:
+    - json:
+        object_type: individual_vote
+        operation: update_access
+        data:
+          uid: "{{ individual_vote_id }}"
+          public: false
+          relations:
+            viewer:
+              - "project_super_admin"
+          references:
+            vote:
+              - "{{ vote_id }}"
