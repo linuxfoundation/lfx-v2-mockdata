@@ -65,7 +65,7 @@ buf_board_members:
     {% for i in range(8) %}
     - json:
         appointed_by: Membership Entitlement
-        email: {{ fake.ascii_company_email() }}
+        email: {{ fake.ascii_safe_email() }}
         first_name: {{ fake.first_name() }}
         last_name: {{ fake.last_name() }}
         organization:
