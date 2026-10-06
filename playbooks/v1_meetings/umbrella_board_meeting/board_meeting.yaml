@@ -250,7 +250,7 @@ buf_board_meeting_committee_participants_access_update:
 {% set ns = namespace(occurrence_start_time=meeting_start_time) %}
 {# Loop over the number of past monthly meetings to create #}
 {% for past_meeting_index in range(total_past_meetings) -%}
-{# Note, incrementing occurrence_start_time happpens at the END of the loop. #}
+{# Note, incrementing occurrence_start_time happens at the END of the loop. #}
 {% set occurrence_actual_start = fake.date_time_between(
   start_date=ns.occurrence_start_time - timedelta(minutes=10),
   end_date=ns.occurrence_start_time + timedelta(minutes=2),
@@ -324,7 +324,7 @@ buf_board_past_meeting_{{ past_meeting_index }}_create:
           modified_at: "{{ occurrence_modified.isoformat() }}Z"
           timezone: !ref buf_board_meeting_create.steps[0].json.data.timezone
           ai_summary_access: public
-          # TODO ... what is this? (it didn't necesesarily match recurrence.type in my test data)
+          # TODO ... what is this? (it didn't necessarily match recurrence.type in my test data)
           type: "3"
         tags:
           # Plain UID (past_meeting_uid)
